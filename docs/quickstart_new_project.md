@@ -16,7 +16,7 @@
 - 执行：`go get github.com/luaxlou/nova/starter`
 
 2. 建立初始化骨架
-- 在 `main.go` 中先接入 `novaconfig` 与 `novahttp`
+- 在 `main.go` 中先接入 `novaconfig` 与 `novagin`
 - 按需声明 `novamysql/novaredis/novawebsocket`
 
 3. 统一路由与依赖注入入口

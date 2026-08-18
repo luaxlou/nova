@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/luaxlou/nova/starter/novahttp"
+	"github.com/luaxlou/nova/starter/novagin"
 	"github.com/luaxlou/nova/starter/novamysql"
 	"github.com/luaxlou/nova/starter/novaredis"
 )
@@ -14,7 +14,7 @@ func main() {
 	novamysql.Init("main")
 	novaredis.Init()
 
-	r := novahttp.Router()
+	r := novagin.Router()
 	r.GET("/ready", func(c *gin.Context) {
 		if _, err := novamysql.Gorm(); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"mysql": err.Error()})
@@ -27,8 +27,8 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"ready": true})
 	})
 
-	novahttp.Init(8080)
-	novahttp.Run()
+	novagin.Init(8080)
+	novagin.Run()
 	log.Println("api-db-cache started")
 	select {}
 }

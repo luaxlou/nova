@@ -45,7 +45,7 @@ go vet ./...
 ## 快速索引
 
 - `starter/novaconfig`
-- `starter/novahttp`
+- `starter/novagin`
 - `starter/novamysql`
 - `starter/novaredis`
 - `starter/novawebsocket`

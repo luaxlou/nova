@@ -4,15 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/luaxlou/nova/starter/novahttp"
+	"github.com/luaxlou/nova/starter/novagin"
 )
 
 func main() {
-	r := novahttp.Router()
+	r := novagin.Router()
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, map[string]any{"ok": true})
 	})
-	novahttp.Init(8080)
-	novahttp.Run()
+	novagin.Init(8080)
+	novagin.Run()
 	select {}
 }

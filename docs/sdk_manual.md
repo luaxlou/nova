@@ -57,7 +57,7 @@ redis:
   addr: localhost:6379
 ```
 
-### 3.2 novahttp
+### 3.2 novagin
 
 提供 HTTP 服务器启动适配（Gin）。
 

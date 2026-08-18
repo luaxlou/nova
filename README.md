@@ -47,7 +47,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 ## 这个仓库包含什么
 
 - [`starter/novaconfig`](./starter/novaconfig)：配置读取
-- [`starter/novahttp`](./starter/novahttp)：HTTP 服务启动适配（Gin）
+- [`starter/novagin`](./starter/novagin)：HTTP 服务启动适配（Gin）
 - [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
 - [`starter/novaredis`](./starter/novaredis)：Redis 初始化
 - [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配

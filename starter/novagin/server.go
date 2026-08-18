@@ -1,4 +1,4 @@
-package novahttp
+package novagin
 
 import (
 	"log"

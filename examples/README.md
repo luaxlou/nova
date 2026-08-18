@@ -5,7 +5,7 @@
 ## 示例清单
 
 - `simple-app`：最小配置读取示例
-- `minimal-api`：最小 HTTP 服务示例（`novaconfig` + `novahttp`）
+- `minimal-api`：最小 HTTP 服务示例（`novaconfig` + `novagin`）
 - `api-db-cache`：HTTP + MySQL + Redis 组合示例
 - `api-websocket`：HTTP + WebSocket 组合示例
 
