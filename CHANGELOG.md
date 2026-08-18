@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Glow will be documented in this file.
+All notable changes to Nova will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -9,16 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - 一键安装脚本支持（Linux/macOS）
-- 自我更新功能（`glow-server update` 和 `glow update`）
-- 版本管理命令（`glow-server version` 和 `glow version`）
+- 自我更新功能（`nova update`）
+- 版本管理命令（`nova version`）
 - 日志自动清理功能（按年龄 + 总量）
 - 服务环境文件支持
-- 固定目录约定（`/var/lib/glow-server`, `/etc/glow-server`）
+- 固定目录约定（`/var/lib/nova`, `/etc/nova`）
 - 一键卸载脚本（保留配置与数据库）
 - 本地开发安装脚本（不常驻服务）
 
 ### Changed
-- 移除 `glow-server install` 命令（统一使用安装脚本）
+- 移除 `nova install` 命令（统一使用安装脚本）
 - 更新 `serve` 命令支持 `--data-dir` 参数
 - 更新服务模板（systemd/launchd）支持环境文件
 
