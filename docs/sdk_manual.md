@@ -1,6 +1,6 @@
 ## 仓库职责说明
 
-本手册仅覆盖 **nova 框架仓**（starter/SDK）。运维控制面（glow-server/glow-cli）已拆分到 **glow-ops** 仓库。
+本手册仅覆盖 **nova 框架仓**（starter/SDK）。
 
 # Nova SDK 用户手册
 
@@ -108,4 +108,3 @@ Starter 仅负责应用内能力接入，不负责运维生命周期编排。
 
 - Starter 负责：配置读取、HTTP 启动适配、数据库/缓存连接初始化
 - 运维生命周期负责：`start/stop/restart/health/rollback` 编排
-- 运维生命周期统一在 `glow-ops` 仓库对齐历史运维约定
