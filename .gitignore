@@ -1,0 +1,49 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# OS Specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+# .claude/ is included - it contains glow-app skill for Claude Code integration
+.cursor/
+*.swp
+*.swo
+
+# Project specific
+glow.db
+*.log
+glow
+glow-server
+
+# Example binaries
+examples/*/simple-app
+examples/*/*-app
+
+# Build output
+dist/
+
+.worktrees/
+.gemini/commands/openspec/
