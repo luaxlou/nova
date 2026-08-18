@@ -2,7 +2,7 @@
 
 ## 诞生理念
 
-`glow` 的目标不是增加一个大而全框架，而是把 Go 项目里的高频基础接入沉淀成稳定约定，让团队持续获得这些收益：
+`nova` 的目标不是增加一个大而全框架，而是把 Go 项目里的高频基础接入沉淀成稳定约定，让团队持续获得这些收益：
 
 - 边界清晰：业务逻辑与基础接入职责分离
 - 可组合：按需引入 starter，避免绑定整套技术栈
@@ -20,24 +20,24 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_new_project.md
 存量项目流程卡（5 步）：
 https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 
-### 提示词模版：新项目引入 glow
+### 提示词模版：新项目引入 nova
 
 ```text
-请基于 glow 初始化一个新服务。
+请基于 nova 初始化一个新服务。
 请先阅读：https://github.com/luaxlou/nova/blob/main/docs/ai_coding_guide.md
-目标：基于 glow 建立统一、可组合的应用接入基线，并快速落地最小可运行服务。
-重点收益：通过 glow 的稳定约定、可组合能力和低心智负担，提升项目可维护性与团队交付效率。
-需解决问题：如何让项目在引入后持续享受 glow 设计哲学带来的收益，而不是一次性接入。
+目标：基于 nova 建立统一、可组合的应用接入基线，并快速落地最小可运行服务。
+重点收益：通过 nova 的稳定约定、可组合能力和低心智负担，提升项目可维护性与团队交付效率。
+需解决问题：如何让项目在引入后持续享受 nova 设计哲学带来的收益，而不是一次性接入。
 输出要求：给出实施计划、文件改动清单、收益说明与验证结果。
 完成后执行并反馈：go test ./... && go vet ./...
 ```
 
-### 模板 2：现有项目引入 glow
+### 模板 2：现有项目引入 nova
 
 ```text
-请在现有项目中引入 glow starter。
+请在现有项目中引入 nova starter。
 请先阅读：https://github.com/luaxlou/nova/blob/main/docs/ai_coding_guide.md
-目标：迁移到 glow 的统一接入范式，减少重复样板并提升长期可维护性。
+目标：迁移到 nova 的统一接入范式，减少重复样板并提升长期可维护性。
 重点收益：让项目获得边界清晰、可组合复用、低心智负担和稳定约定。
 需解决问题：如何把接入过程沉淀为可持续演进的工程基线。
 输出要求：给出实施步骤、受影响文件清单、收益说明与验证结果。
