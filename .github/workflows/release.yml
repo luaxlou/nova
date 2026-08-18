@@ -133,4 +133,4 @@ jobs:
           sha256sum -c SHA256SUMS.txt
           \`\`\`
 
-          完整更新日志请查看 [CHANGELOG.md](https://github.com/luaxlou/glow/blob/main/CHANGELOG.md)"
+          完整更新日志请查看本次 Release 页面。"
