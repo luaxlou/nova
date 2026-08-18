@@ -4,103 +4,261 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
+	"time"
 
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/luaxlou/nova/starter/internal/registry"
 	"github.com/luaxlou/nova/starter/novaconfig"
-	"gorm.io/driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-var (
-	gdb         *gorm.DB
-	db          *sql.DB
-	initialized bool
-	mu          sync.RWMutex
-	dbName      string
-)
-
-func Init(name string) {
-	dbName = name
+type Instance interface {
+	DB() (*sql.DB, error)
+	Reload() error
+	Close() error
 }
 
-func Gorm() (*gorm.DB, error) {
-	mu.RLock()
-	if initialized && gdb != nil {
-		defer mu.RUnlock()
-		return gdb, nil
-	}
-	mu.RUnlock()
+type mysqlInstance struct {
+	handle *registry.Instance[*sql.DB]
+}
 
-	mu.Lock()
-	defer mu.Unlock()
+var (
+	initialized bool
+	initMu      sync.Mutex
+	reg         = registry.New[*sql.DB]()
+)
 
-	if initialized && gdb != nil {
-		return gdb, nil
-	}
-
-	if dbName == "" {
-		return nil, fmt.Errorf("mysql db name not configured. use mysql.Init(dbName)")
+func Init() error {
+	initMu.Lock()
+	defer initMu.Unlock()
+	if initialized {
+		return nil
 	}
 
-	log.Printf("Lazy initializing MySQL Starter for db: %s...", dbName)
-
-	// Read DSN from local config (provided by local config file)
-	dsn := novaconfig.GetString("mysql.dsn")
-	if dsn == "" {
-		return nil, fmt.Errorf("mysql.dsn is empty in config")
+	root, ok := asStringMap(novaconfig.Get("mysql"))
+	if !ok {
+		return fmt.Errorf("mysql config not found. call novamysql.Init() after config file load")
 	}
 
-	conn, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to open mysql connection via gorm: %w", err)
+	definitions, defaultName := buildDefinitions(root)
+	if len(definitions) == 0 {
+		return fmt.Errorf("mysql config missing dsn or instances")
 	}
 
-	sqlDB, err := conn.DB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get mysql sql.DB: %w", err)
-	}
-
-	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping mysql: %w", err)
-	}
-
-	gdb = conn
-	db = sqlDB
+	reg.Init(defaultName, definitions)
 	initialized = true
-	log.Println("MySQL Starter initialized successfully.")
+	log.Printf("MySQL Starter initialized, default=%s", defaultName)
+	return nil
+}
 
-	return gdb, nil
+func Get() *mysqlInstance {
+	_ = ensureInit()
+	return &mysqlInstance{handle: reg.Get()}
+}
+
+func Named(name string) *mysqlInstance {
+	_ = ensureInit()
+	return &mysqlInstance{handle: reg.Named(name)}
 }
 
 func DB() (*sql.DB, error) {
-	mu.RLock()
-	if initialized && db != nil {
-		defer mu.RUnlock()
-		return db, nil
-	}
-	mu.RUnlock()
+	return Named("").DB()
+}
 
-	conn, err := Gorm()
+func (h *mysqlInstance) DB() (*sql.DB, error) {
+	return h.handle.Get()
+}
+
+func (h *mysqlInstance) Reload() error {
+	return h.handle.Reload()
+}
+
+func (h *mysqlInstance) Close() error {
+	return h.handle.Close()
+}
+
+func Reload() {
+	_ = ensureInit()
+	_ = Get().Reload()
+}
+
+func Close() error {
+	_ = ensureInit()
+	return Get().Close()
+}
+
+func CloseAll() error {
+	_ = ensureInit()
+	return reg.CloseAll()
+}
+
+func Gorm() (*gorm.DB, error) {
+	sqlDB, err := DB()
 	if err != nil {
 		return nil, err
 	}
 
-	sqlDB, err := conn.DB()
+	gdb, err := gorm.Open(gormmysql.New(gormmysql.Config{
+		Conn: sqlDB,
+	}), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get mysql sql.DB: %w", err)
+		return nil, fmt.Errorf("failed to open gorm from mysql conn: %w", err)
 	}
-	return sqlDB, nil
+	return gdb, nil
 }
 
-func Reload() {
-	mu.Lock()
-	defer mu.Unlock()
+func buildDefinitions(root map[string]any) (map[string]registry.Builder[*sql.DB], string) {
+	instances := map[string]mysqlConfig{}
+	definitions := map[string]registry.Builder[*sql.DB]{}
 
-	if db != nil {
-		db.Close()
-		db = nil
+	if rawInstances, ok := asStringMap(root["instances"]); ok {
+		for name := range rawInstances {
+			if cfgMap, ok := asStringMap(rawInstances[name]); ok {
+				instances[name] = parseMySQLConfig(cfgMap)
+			}
+		}
 	}
-	gdb = nil
-	initialized = false
-	log.Println("MySQL Starter reset for re-initialization.")
+
+	if len(instances) == 0 {
+		if dsn := asString(root["dsn"]); dsn != "" {
+			instances["default"] = parseMySQLConfig(root)
+		}
+	}
+
+	if len(instances) == 0 {
+		return nil, ""
+	}
+
+	defaultName := asString(root["default"])
+	if defaultName == "" {
+		for name := range instances {
+			defaultName = name
+			break
+		}
+	}
+	if defaultName == "" {
+		defaultName = "default"
+	}
+
+	for name, cfg := range instances {
+		cfgCopy := cfg
+		definitions[name] = func(_ string) (*sql.DB, error) {
+			return newMySQLConnection(cfgCopy)
+		}
+	}
+
+	return definitions, defaultName
+}
+
+func newMySQLConnection(cfg mysqlConfig) (*sql.DB, error) {
+	if cfg.DSN == "" {
+		return nil, fmt.Errorf("mysql dsn is empty")
+	}
+
+	db, err := sql.Open("mysql", cfg.DSN)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open mysql: %w", err)
+	}
+
+	if cfg.MaxOpen > 0 {
+		db.SetMaxOpenConns(cfg.MaxOpen)
+	}
+	if cfg.MaxIdle > 0 {
+		db.SetMaxIdleConns(cfg.MaxIdle)
+	}
+	if cfg.ConnMaxLifetime > 0 {
+		db.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
+	}
+	if cfg.ConnMaxIdleTime > 0 {
+		db.SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTime) * time.Second)
+	}
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping mysql: %w", err)
+	}
+
+	return db, nil
+}
+
+func ensureInit() error {
+	if initialized {
+		return nil
+	}
+	return Init()
+}
+
+type mysqlConfig struct {
+	DSN             string
+	MaxOpen         int
+	MaxIdle         int
+	ConnMaxLifetime int
+	ConnMaxIdleTime int
+}
+
+func parseMySQLConfig(raw map[string]any) mysqlConfig {
+	return mysqlConfig{
+		DSN:             asString(raw["dsn"]),
+		MaxOpen:         asInt(raw["max_open"]),
+		MaxIdle:         asInt(raw["max_idle"]),
+		ConnMaxLifetime: asInt(raw["conn_max_lifetime"]),
+		ConnMaxIdleTime: asInt(raw["conn_max_idle_time"]),
+	}
+}
+
+func asString(value any) string {
+	if value == nil {
+		return ""
+	}
+	s, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+func asInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case string:
+		parsed, err := strconv.Atoi(typed)
+		if err != nil {
+			return 0
+		}
+		return parsed
+	default:
+		return 0
+	}
+}
+
+func asStringMap(value any) (map[string]any, bool) {
+	if value == nil {
+		return nil, false
+	}
+
+	if typed, ok := value.(map[string]any); ok {
+		return typed, true
+	}
+
+	if raw, ok := value.(map[any]any); ok {
+		converted := make(map[string]any, len(raw))
+		for k, v := range raw {
+			ks, ok := k.(string)
+			if !ok {
+				continue
+			}
+			converted[ks] = v
+		}
+		return converted, true
+	}
+
+	return nil, false
 }

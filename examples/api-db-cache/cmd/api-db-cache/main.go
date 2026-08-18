@@ -11,8 +11,12 @@ import (
 )
 
 func main() {
-	novamysql.Init("main")
-	novaredis.Init()
+	if err := novamysql.Init(); err != nil {
+		log.Fatalf("mysql init failed: %v", err)
+	}
+	if err := novaredis.Init(); err != nil {
+		log.Fatalf("redis init failed: %v", err)
+	}
 
 	r := novagin.Router()
 	r.GET("/ready", func(c *gin.Context) {

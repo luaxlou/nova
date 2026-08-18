@@ -19,15 +19,12 @@ package main
 
 import (
     "fmt"
+
     "github.com/luaxlou/nova/starter/novaconfig"
 )
 
 func main() {
-    logLevel := novaconfig.GetString("log_level")
-    maxConnections := novaconfig.GetInt("max_connections")
-
-    fmt.Printf("Log Level: %s\n", logLevel)
-    fmt.Printf("Max Connections: %d\n", maxConnections)
+    fmt.Println(novaconfig.GetString("log_level"))
 }
 ```
 
@@ -52,9 +49,20 @@ func main() {
 log_level: debug
 max_connections: 100
 mysql:
-  dsn: root:password@tcp(localhost:3306)/app
+  default: main
+  instances:
+    main:
+      dsn: root:password@tcp(localhost:3306)/app
+      max_open: 20
+      max_idle: 10
+    analytics:
+      dsn: analytics:password@tcp(localhost:3306)/analytics
 redis:
-  addr: localhost:6379
+  default: main
+  instances:
+    main:
+      addr: localhost:6379
+      db: 0
 ```
 
 ### 3.2 novagin
@@ -69,18 +77,26 @@ redis:
 
 提供 MySQL 连接初始化能力。
 
-- `Init(name string)`
-- `Gorm() (*gorm.DB, error)`
+- `Init() error`
+- `Get() *mysqlInstance`
+- `Named(name string) *mysqlInstance`
 - `DB() (*sql.DB, error)`
+- `Gorm() (*gorm.DB, error)`
 - `Reload()`
+- `Close() error`
+- `CloseAll() error`
 
 ### 3.4 novaredis
 
 提供 Redis 客户端初始化能力。
 
-- `Init()`
+- `Init() error`
 - `Client() (*redis.Client, error)`
+- `Get() *redisInstance`
+- `Named(name string) *redisInstance`
 - `Reload()`
+- `Close() error`
+- `CloseAll() error`
 
 ## 4. 运行模式
 
