@@ -27,7 +27,6 @@ Thumbs.db
 # IDEs
 .idea/
 .vscode/
-# .claude/ is included - it contains glow-app skill for Claude Code integration
 .cursor/
 *.swp
 *.swo
@@ -46,4 +45,3 @@ examples/*/*-app
 dist/
 
 .worktrees/
-.gemini/commands/openspec/
