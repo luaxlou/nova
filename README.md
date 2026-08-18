@@ -37,7 +37,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 ```text
 请在现有项目中引入 nova starter。
 请先阅读：https://github.com/luaxlou/nova/blob/main/docs/ai_coding_guide.md
-目标：迁移到 nova 的统一接入范式，减少重复样板并提升长期可维护性。
+目标：建立 nova 的统一接入范式，减少重复样板并提升长期可维护性。
 重点收益：让项目获得边界清晰、可组合复用、低心智负担和稳定约定。
 需解决问题：如何把接入过程沉淀为可持续演进的工程基线。
 输出要求：给出实施步骤、受影响文件清单、收益说明与验证结果。
@@ -46,11 +46,11 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 
 ## 这个仓库包含什么
 
-- [`starter/glowconfig`](./starter/glowconfig)：配置读取
-- [`starter/glowhttp`](./starter/glowhttp)：HTTP 服务启动适配（Gin）
-- [`starter/glowmysql`](./starter/glowmysql)：MySQL 初始化
-- [`starter/glowredis`](./starter/glowredis)：Redis 初始化
-- [`starter/glowwebsocket`](./starter/glowwebsocket)：WebSocket 适配
+- [`starter/novaconfig`](./starter/novaconfig)：配置读取
+- [`starter/novahttp`](./starter/novahttp)：HTTP 服务启动适配（Gin）
+- [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
+- [`starter/novaredis`](./starter/novaredis)：Redis 初始化
+- [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配
 - [`examples/`](./examples)：示例集合
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
 
@@ -70,11 +70,11 @@ package main
 import (
     "fmt"
 
-    "github.com/luaxlou/nova/starter/glowconfig"
+    "github.com/luaxlou/nova/starter/novaconfig"
 )
 
 func main() {
-    fmt.Println(glowconfig.GetString("log_level"))
+    fmt.Println(novaconfig.GetString("log_level"))
 }
 ```
 

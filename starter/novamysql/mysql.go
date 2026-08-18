@@ -1,4 +1,4 @@
-package glowmysql
+package novamysql
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/luaxlou/nova/starter/glowconfig"
+	"github.com/luaxlou/nova/starter/novaconfig"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -45,7 +45,7 @@ func Gorm() (*gorm.DB, error) {
 	log.Printf("Lazy initializing MySQL Starter for db: %s...", dbName)
 
 	// Read DSN from local config (provided by local config file)
-	dsn := glowconfig.GetString("mysql.dsn")
+	dsn := novaconfig.GetString("mysql.dsn")
 	if dsn == "" {
 		return nil, fmt.Errorf("mysql.dsn is empty in config")
 	}

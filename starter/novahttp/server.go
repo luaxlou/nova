@@ -1,4 +1,4 @@
-package glowhttp
+package novahttp
 
 import (
 	"log"
@@ -52,7 +52,7 @@ func Run() {
 	}
 
 	// Priority: OP_APP_PORT > Init() Port > PORT > 8080
-	// 1. Check override from Glow Server (OP_APP_PORT)
+	// 1. Check override from Nova Server (OP_APP_PORT)
 	if p := os.Getenv("OP_APP_PORT"); p != "" {
 		port = ":" + p
 	}

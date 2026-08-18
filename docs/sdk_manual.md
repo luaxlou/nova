@@ -19,12 +19,12 @@ package main
 
 import (
     "fmt"
-    "github.com/luaxlou/nova/starter/glowconfig"
+    "github.com/luaxlou/nova/starter/novaconfig"
 )
 
 func main() {
-    logLevel := glowconfig.GetString("log_level")
-    maxConnections := glowconfig.GetInt("max_connections")
+    logLevel := novaconfig.GetString("log_level")
+    maxConnections := novaconfig.GetInt("max_connections")
 
     fmt.Printf("Log Level: %s\n", logLevel)
     fmt.Printf("Max Connections: %d\n", maxConnections)
@@ -33,7 +33,7 @@ func main() {
 
 ## 3. 核心组件
 
-### 3.1 glowconfig
+### 3.1 novaconfig
 
 从本地配置文件读取配置。
 
@@ -57,7 +57,7 @@ redis:
   addr: localhost:6379
 ```
 
-### 3.2 glowhttp
+### 3.2 novahttp
 
 提供 HTTP 服务器启动适配（Gin）。
 
@@ -65,7 +65,7 @@ redis:
 - `Router() *gin.Engine`
 - `Run()`
 
-### 3.3 glowmysql
+### 3.3 novamysql
 
 提供 MySQL 连接初始化能力。
 
@@ -74,7 +74,7 @@ redis:
 - `DB() (*sql.DB, error)`
 - `Reload()`
 
-### 3.4 glowredis
+### 3.4 novaredis
 
 提供 Redis 客户端初始化能力。
 

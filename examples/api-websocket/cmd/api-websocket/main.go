@@ -5,14 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/luaxlou/nova/starter/glowhttp"
-	"github.com/luaxlou/nova/starter/glowwebsocket"
+	"github.com/luaxlou/nova/starter/novahttp"
+	"github.com/luaxlou/nova/starter/novawebsocket"
 )
 
 func main() {
-	r := glowhttp.Router()
+	r := novahttp.Router()
 	r.GET("/ws", func(c *gin.Context) {
-		glowwebsocket.Handle(c, func(conn *websocket.Conn) {
+		novawebsocket.Handle(c, func(conn *websocket.Conn) {
 			for {
 				mt, msg, err := conn.ReadMessage()
 				if err != nil {
@@ -25,8 +25,8 @@ func main() {
 		})
 	})
 
-	glowhttp.Init(8080)
-	glowhttp.Run()
+	novahttp.Init(8080)
+	novahttp.Run()
 	log.Println("api-websocket started")
 	select {}
 }

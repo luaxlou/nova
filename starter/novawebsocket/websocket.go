@@ -1,4 +1,4 @@
-package glowwebsocket
+package novawebsocket
 
 import (
 	"log"

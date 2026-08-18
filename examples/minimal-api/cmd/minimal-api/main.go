@@ -4,15 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/luaxlou/nova/starter/glowhttp"
+	"github.com/luaxlou/nova/starter/novahttp"
 )
 
 func main() {
-	r := glowhttp.Router()
+	r := novahttp.Router()
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, map[string]any{"ok": true})
 	})
-	glowhttp.Init(8080)
-	glowhttp.Run()
+	novahttp.Init(8080)
+	novahttp.Run()
 	select {}
 }

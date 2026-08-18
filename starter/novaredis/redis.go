@@ -1,4 +1,4 @@
-package glowredis
+package novaredis
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/luaxlou/nova/starter/glowconfig"
+	"github.com/luaxlou/nova/starter/novaconfig"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -42,21 +42,21 @@ func Client() (*redis.Client, error) {
 	}
 
 	// NOTE: With local-config-only mode (with local config mode), we don't request resources at runtime.
-	// Keep legacy naming convention documented here for compatibility, but avoid unused vars.
+
 
 	log.Printf("Lazy initializing Redis Starter...")
 
 	// Read Redis config from local config (provided by local config file)
-	addr := glowconfig.GetString("redis.addr")
+	addr := novaconfig.GetString("redis.addr")
 	if addr == "" {
 		return nil, fmt.Errorf("redis_addr not found in config")
 	}
 
 	c := redis.NewClient(&redis.Options{
 		Addr:     addr,
-		Username: glowconfig.GetString("redis.username"),
-		Password: glowconfig.GetString("redis.password"),
-		DB:       glowconfig.GetInt("redis.db"),
+		Username: novaconfig.GetString("redis.username"),
+		Password: novaconfig.GetString("redis.password"),
+		DB:       novaconfig.GetInt("redis.db"),
 	})
 
 	if err := c.Ping(context.Background()).Err(); err != nil {

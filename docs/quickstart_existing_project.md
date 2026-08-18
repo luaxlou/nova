@@ -16,7 +16,7 @@
 - 标注配置加载、HTTP 初始化、数据库/缓存初始化位置
 
 2. 映射到 starter
-- 用 `glowconfig/glowhttp/...` 建立一一映射
+- 用 `novaconfig/novahttp/...` 建立一一映射
 - 优先替换重复样板和通用接入逻辑
 
 3. 收敛初始化入口

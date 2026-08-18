@@ -44,11 +44,11 @@ go vet ./...
 
 ## 快速索引
 
-- `starter/glowconfig`
-- `starter/glowhttp`
-- `starter/glowmysql`
-- `starter/glowredis`
-- `starter/glowwebsocket`
+- `starter/novaconfig`
+- `starter/novahttp`
+- `starter/novamysql`
+- `starter/novaredis`
+- `starter/novawebsocket`
 - `examples/simple-app`
 - `docs/starter_conventions.md`
 - `docs/starter_composition_matrix.md`

@@ -16,8 +16,8 @@
 - 执行：`go get github.com/luaxlou/nova/starter`
 
 2. 建立初始化骨架
-- 在 `main.go` 中先接入 `glowconfig` 与 `glowhttp`
-- 按需声明 `glowmysql/glowredis/glowwebsocket`
+- 在 `main.go` 中先接入 `novaconfig` 与 `novahttp`
+- 按需声明 `novamysql/novaredis/novawebsocket`
 
 3. 统一路由与依赖注入入口
 - 所有启动逻辑集中在单一入口（建议 `cmd/<app>/main.go`）

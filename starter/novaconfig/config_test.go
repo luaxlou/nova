@@ -1,4 +1,4 @@
-package glowconfig
+package novaconfig
 
 import (
 	"os"
