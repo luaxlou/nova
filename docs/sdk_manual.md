@@ -82,12 +82,6 @@ redis:
 - `Client() (*redis.Client, error)`
 - `Reload()`
 
-### 3.5 SQLite（当前暂不维护）
-
-当前二代不保留 SQLite Starter，先不做维护。
-
-如有需求可在业务层通过独立实现接入。
-
 ## 4. 运行模式
 
 ### 4.1 本地开发
