@@ -8,6 +8,7 @@
 - `minimal-api`：最小 HTTP 服务示例（`novaconfig` + `novagin`）
 - `api-db-cache`：HTTP + MySQL + Redis 组合示例
 - `api-websocket`：HTTP + WebSocket 组合示例
+- `best-practice-service`：按 Nova 工程最佳实践组织的领域化示例（业务域 + data + HTTP adapter）
 
 ## 运行提示
 
