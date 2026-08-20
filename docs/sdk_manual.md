@@ -81,12 +81,23 @@ redis:
 - `Get() *mysqlInstance`
 - `Named(name string) *mysqlInstance`
 - `DB() (*sql.DB, error)`
-- `Gorm() (*gorm.DB, error)`
 - `Reload()`
 - `Close() error`
 - `CloseAll() error`
 
-### 3.4 novaredis
+### 3.4 novagorm
+
+提供 GORM 适配能力，复用 `novamysql` 管理的 `*sql.DB` 连接。
+
+- `Init() error`
+- `Get() *gormInstance`
+- `Named(name string) *gormInstance`
+- `DB() (*gorm.DB, error)`
+- `Reload()`
+- `Close() error`
+- `CloseAll() error`
+
+### 3.5 novaredis
 
 提供 Redis 客户端初始化能力。
 

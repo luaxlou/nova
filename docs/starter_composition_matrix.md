@@ -9,13 +9,13 @@
 ## 场景 2：API + DB
 
 - 必选：`novaconfig`、`novagin`、`novamysql`
-- 可选：`novaredis`
+- 可选：`novagorm`、`novaredis`
 - 适用：读写型业务服务
 
 ## 场景 3：API + DB + Cache
 
 - 必选：`novaconfig`、`novagin`、`novamysql`、`novaredis`
-- 可选：`novawebsocket`
+- 可选：`novagorm`、`novawebsocket`
 - 适用：高并发读写、缓存加速场景
 
 ## 场景 4：实时通信

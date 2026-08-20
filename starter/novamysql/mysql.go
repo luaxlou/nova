@@ -11,8 +11,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/luaxlou/nova/starter/internal/registry"
 	"github.com/luaxlou/nova/starter/novaconfig"
-	gormmysql "gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 type Instance interface {
@@ -93,21 +91,6 @@ func Close() error {
 func CloseAll() error {
 	_ = ensureInit()
 	return reg.CloseAll()
-}
-
-func Gorm() (*gorm.DB, error) {
-	sqlDB, err := DB()
-	if err != nil {
-		return nil, err
-	}
-
-	gdb, err := gorm.Open(gormmysql.New(gormmysql.Config{
-		Conn: sqlDB,
-	}), &gorm.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to open gorm from mysql conn: %w", err)
-	}
-	return gdb, nil
 }
 
 func buildDefinitions(root map[string]any) (map[string]registry.Builder[*sql.DB], string) {

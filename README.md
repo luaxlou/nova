@@ -48,13 +48,20 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 
 - [`starter/novaconfig`](./starter/novaconfig)：配置读取
 - [`starter/novagin`](./starter/novagin)：HTTP 服务启动适配（Gin）
-- [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
+- Nova MySQL [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
+- Nova GORM [`starter/novagorm`](./starter/novagorm)：GORM 适配，基于 `novamysql` 连接
 - [`starter/novaredis`](./starter/novaredis)：Redis 初始化
 - [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配
 - [`examples/`](./examples)：示例集合
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
 
 新增约定：当前二代默认配置文件为 `config.yaml`（YAML）。
+
+## Nova MySQL / Nova GORM 约定
+
+`starter/novamysql` 只负责 MySQL 原生连接初始化，向上提供 `*sql.DB`，不依赖 ORM。
+
+需要 GORM 时引入 `starter/novagorm`。`novagorm` 复用 `novamysql` 管理的连接并适配为 `*gorm.DB`，依赖方向保持为 `novagorm -> novamysql`。
 
 ## 快速开始
 

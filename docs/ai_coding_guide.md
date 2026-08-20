@@ -47,6 +47,7 @@ go vet ./...
 - `starter/novaconfig`
 - `starter/novagin`
 - `starter/novamysql`
+- `starter/novagorm`
 - `starter/novaredis`
 - `starter/novawebsocket`
 - `examples/simple-app`

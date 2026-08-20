@@ -1,6 +1,7 @@
 package novaconfig
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -10,8 +11,8 @@ import (
 func TestGetString(t *testing.T) {
 	// Create a dummy config.yaml
 	configContent := map[string]any{
-		"foo": "bar",
-		"port": 8080,
+		"foo":   "bar",
+		"port":  8080,
 		"debug": true,
 		"nested": map[string]any{
 			"key": "value",
