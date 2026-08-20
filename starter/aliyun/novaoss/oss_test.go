@@ -80,6 +80,64 @@ oss:
 	}
 }
 
+func TestDefaultHelpersInitializeBeforeResolvingRegistryHandle(t *testing.T) {
+	config := `
+oss:
+  endpoint: https://oss-cn-hangzhou.aliyuncs.com
+  bucket: release-artifacts
+  access_key_id: test-access-key-id
+  access_key_secret: test-access-key-secret
+`
+
+	t.Run("Bucket", func(t *testing.T) {
+		loadConfig(t, config)
+		resetForTest()
+
+		bucket, err := Bucket()
+		if err != nil {
+			t.Fatalf("Bucket() error = %v", err)
+		}
+		if bucket.BucketName != "release-artifacts" {
+			t.Fatalf("bucket name = %q, want release-artifacts", bucket.BucketName)
+		}
+	})
+
+	t.Run("Named empty", func(t *testing.T) {
+		loadConfig(t, config)
+		resetForTest()
+
+		bucket, err := Named("").Bucket()
+		if err != nil {
+			t.Fatalf("Named(\"\").Bucket() error = %v", err)
+		}
+		if bucket.BucketName != "release-artifacts" {
+			t.Fatalf("bucket name = %q, want release-artifacts", bucket.BucketName)
+		}
+	})
+
+	t.Run("Reload", func(t *testing.T) {
+		loadConfig(t, config)
+		resetForTest()
+
+		if err := Get().Reload(); err != nil {
+			t.Fatalf("Get().Reload() error = %v", err)
+		}
+	})
+
+	t.Run("Close", func(t *testing.T) {
+		loadConfig(t, config)
+		resetForTest()
+
+		handle := Get()
+		if err := handle.Close(); err != nil {
+			t.Fatalf("Get().Close() error = %v", err)
+		}
+		if _, err := handle.Bucket(); err != nil {
+			t.Fatalf("Get().Bucket() after Close() error = %v", err)
+		}
+	})
+}
+
 func TestInitRejectsUnknownDefaultInstance(t *testing.T) {
 	loadConfig(t, `
 oss:
@@ -96,6 +154,56 @@ oss:
 	err := Init()
 	if err == nil || !strings.Contains(err.Error(), `default instance "reporting" is not defined`) {
 		t.Fatalf("Init() error = %v, want missing default instance error", err)
+	}
+}
+
+func TestInitRejectsMalformedNamedInstances(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  string
+		wantErr string
+	}{
+		{
+			name: "instances is not a map",
+			config: `
+oss:
+  endpoint: https://oss-cn-hangzhou.aliyuncs.com
+  bucket: fallback-bucket
+  access_key_id: fallback-access-key-id
+  access_key_secret: fallback-access-key-secret
+  instances: invalid
+`,
+			wantErr: "oss config instances must be a map",
+		},
+		{
+			name: "named entry is not a map",
+			config: `
+oss:
+  default: reporting
+  instances:
+    reporting:
+      endpoint: https://oss-cn-hangzhou.aliyuncs.com
+      bucket: reporting-bucket
+      access_key_id: reporting-access-key-id
+      access_key_secret: reporting-access-key-secret
+    archive: invalid
+`,
+			wantErr: "oss config instances.archive must be a map",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loadConfig(t, tt.config)
+			resetForTest()
+
+			if err := Init(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Init() error = %v, want error containing %q", err, tt.wantErr)
+			}
+			if _, err := Bucket(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Bucket() error = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 

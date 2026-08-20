@@ -44,7 +44,10 @@ func Init() error {
 		return fmt.Errorf("oss config not found. call novaoss.Init() after config file load")
 	}
 
-	definitions, defaultName := buildDefinitions(root)
+	definitions, defaultName, err := buildDefinitions(root)
+	if err != nil {
+		return err
+	}
 	if len(definitions) == 0 {
 		return fmt.Errorf("oss config missing instance definitions")
 	}
@@ -65,9 +68,10 @@ func Get() *ossInstance {
 
 // Named returns the OSS bucket handle for name.
 func Named(name string) *ossInstance {
+	initErr := ensureInit()
 	return &ossInstance{
 		handle:  reg.Named(name),
-		initErr: ensureInit(),
+		initErr: initErr,
 	}
 }
 
@@ -133,17 +137,29 @@ type ossConfig struct {
 	SecurityToken   string
 }
 
-func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyunoss.Bucket], string) {
+func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyunoss.Bucket], string, error) {
 	instances := map[string]ossConfig{}
-	if rawInstances, ok := asStringMap(root["instances"]); ok {
-		for name, raw := range rawInstances {
-			if cfgMap, ok := asStringMap(raw); ok {
-				instances[name] = parseOSSConfig(cfgMap)
-			}
+	rawInstances, instancesConfigured := root["instances"]
+	if instancesConfigured {
+		instanceConfigs, ok := asStringMap(rawInstances)
+		if !ok {
+			return nil, "", fmt.Errorf("oss config instances must be a map")
 		}
-	}
+		if len(instanceConfigs) == 0 {
+			return nil, "", fmt.Errorf("oss config instances must define at least one named instance")
+		}
 
-	if len(instances) == 0 {
+		for name, raw := range instanceConfigs {
+			if strings.TrimSpace(name) == "" {
+				return nil, "", fmt.Errorf("oss config instances contains an empty instance name")
+			}
+			cfgMap, ok := asStringMap(raw)
+			if !ok {
+				return nil, "", fmt.Errorf("oss config instances.%s must be a map", name)
+			}
+			instances[name] = parseOSSConfig(cfgMap)
+		}
+	} else {
 		instances["default"] = parseOSSConfig(root)
 	}
 
@@ -161,7 +177,7 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyuno
 		}
 	}
 
-	return definitions, defaultName
+	return definitions, defaultName, nil
 }
 
 func chooseDefaultName(instances map[string]ossConfig) string {
