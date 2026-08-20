@@ -185,11 +185,20 @@ type mysqlConfig struct {
 func parseMySQLConfig(raw map[string]any) mysqlConfig {
 	return mysqlConfig{
 		DSN:             asString(raw["dsn"]),
-		MaxOpen:         asInt(raw["max_open"]),
-		MaxIdle:         asInt(raw["max_idle"]),
-		ConnMaxLifetime: asInt(raw["conn_max_lifetime"]),
+		MaxOpen:         firstInt(raw, "max_open", "max_open_conns"),
+		MaxIdle:         firstInt(raw, "max_idle", "max_idle_conns"),
+		ConnMaxLifetime: firstInt(raw, "conn_max_lifetime", "conn_max_lifetime_sec"),
 		ConnMaxIdleTime: asInt(raw["conn_max_idle_time"]),
 	}
+}
+
+func firstInt(raw map[string]any, keys ...string) int {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			return asInt(value)
+		}
+	}
+	return 0
 }
 
 func asString(value any) string {
@@ -241,6 +250,10 @@ func asStringMap(value any) (map[string]any, bool) {
 			converted[ks] = v
 		}
 		return converted, true
+	}
+
+	if raw, ok := value.(novaconfig.Config); ok {
+		return map[string]any(raw), true
 	}
 
 	return nil, false
