@@ -2,17 +2,22 @@ package data
 
 import (
 	"context"
-	"strings"
+
+	"github.com/luaxlou/nova/starter/novagorm"
 )
 
 func EmailExists(ctx context.Context, email string) (bool, error) {
-	if err := ctx.Err(); err != nil {
+	db, err := novagorm.DB()
+	if err != nil {
 		return false, err
 	}
 
-	storeMu.RLock()
-	defer storeMu.RUnlock()
+	var count int64
+	err = db.WithContext(ctx).
+		Model(&UserModel{}).
+		Where("email = ?", email).
+		Count(&count).
+		Error
 
-	_, ok := usersByEmail[strings.ToLower(email)]
-	return ok, nil
+	return count > 0, err
 }

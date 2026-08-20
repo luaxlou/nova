@@ -2,8 +2,9 @@ package data
 
 import (
 	"context"
-	"strings"
 	"time"
+
+	"github.com/luaxlou/nova/starter/novagorm"
 )
 
 type InsertParams struct {
@@ -14,7 +15,8 @@ type InsertParams struct {
 }
 
 func Insert(ctx context.Context, p InsertParams) error {
-	if err := ctx.Err(); err != nil {
+	db, err := novagorm.DB()
+	if err != nil {
 		return err
 	}
 
@@ -28,9 +30,5 @@ func Insert(ctx context.Context, p InsertParams) error {
 		UpdatedAt: now,
 	}
 
-	storeMu.Lock()
-	defer storeMu.Unlock()
-
-	usersByEmail[strings.ToLower(p.Email)] = model
-	return nil
+	return db.WithContext(ctx).Create(&model).Error
 }
