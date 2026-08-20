@@ -1,5 +1,5 @@
-// Package oss provides lazy, named OSS bucket access through Alibaba Cloud's SDK.
-package oss
+// Package novaoss provides lazy, named OSS bucket access through Alibaba Cloud's SDK.
+package novaoss
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ func Init() error {
 
 	root, ok := asStringMap(novaconfig.Get("oss"))
 	if !ok {
-		return fmt.Errorf("oss config not found. call oss.Init() after config file load")
+		return fmt.Errorf("oss config not found. call novaoss.Init() after config file load")
 	}
 
 	definitions, defaultName := buildDefinitions(root)

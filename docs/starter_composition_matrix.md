@@ -26,7 +26,7 @@
 
 ## 场景 5：对象存储
 
-- 必选：`novaconfig`、`starter/aliyun/oss`
+- 必选：`novaconfig`、`starter/aliyun/novaoss`
 - 可选：`novagin`、`novamysql`
 - 适用：使用 Alibaba Cloud OSS 保存或读取对象；访问密钥通过运行时配置或密钥管理系统提供，不写入源代码
 
