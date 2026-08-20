@@ -58,6 +58,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 - Nova MySQL [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
 - Nova GORM [`starter/novagorm`](./starter/novagorm)：GORM 动态装配，支持独立 DSN 或自定义 builder
 - [`starter/novaredis`](./starter/novaredis)：Redis 初始化
+- Alibaba Cloud OSS [`starter/aliyun/oss`](./starter/aliyun/oss)：对象存储 Bucket 初始化
 - [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配
 - [`examples/`](./examples)：示例集合
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
@@ -70,6 +71,27 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 `starter/novamysql` 只负责 MySQL 原生连接初始化，向上提供 `*sql.DB`，不依赖 ORM。
 
 需要 GORM 时引入 `starter/novagorm`。Nova GORM 是 GORM 的统一装配层，不依赖 Nova MySQL：可以通过 `gorm.dsn` 独立初始化，也可以通过 `Register` 注入自定义 builder。需要复用 Nova MySQL 时，由应用层把 `novamysql.DB()` 通过 `Register` 动态装配进来。
+
+## Alibaba Cloud OSS 约定
+
+`starter/aliyun/oss` 使用 Alibaba Cloud OSS 官方 Go SDK，按 `Init + Get/Named + Bucket + Reload/Close` 方式提供对象存储 Bucket。配置只从 `novaconfig` 读取；访问密钥和临时令牌必须来自运行时配置或密钥管理系统，禁止写入源代码或提交到仓库。
+
+```yaml
+oss:
+  endpoint: https://oss-<region>.aliyuncs.com
+  bucket: <bucket>
+  access_key_id: <runtime-secret>
+  access_key_secret: <runtime-secret>
+  security_token: <optional-runtime-secret>
+```
+
+```go
+import oss "github.com/luaxlou/nova/starter/aliyun/oss"
+
+bucket, err := oss.Bucket()
+```
+
+多个 Bucket 时，设置 `oss.default` 并将各配置放在 `oss.instances.<name>` 下；通过 `oss.Named("<name>").Bucket()` 获取指定 Bucket。
 
 ## 快速开始
 
