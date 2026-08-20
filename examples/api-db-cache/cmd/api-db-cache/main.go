@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/luaxlou/nova/starter/novagin"
-	"github.com/luaxlou/nova/starter/novagorm"
 	"github.com/luaxlou/nova/starter/novamysql"
 	"github.com/luaxlou/nova/starter/novaredis"
 )
@@ -21,7 +20,7 @@ func main() {
 
 	r := novagin.Router()
 	r.GET("/ready", func(c *gin.Context) {
-		if _, err := novagorm.DB(); err != nil {
+		if _, err := novamysql.DB(); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"mysql": err.Error()})
 			return
 		}

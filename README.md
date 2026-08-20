@@ -49,7 +49,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 - [`starter/novaconfig`](./starter/novaconfig)：配置读取
 - [`starter/novagin`](./starter/novagin)：HTTP 服务启动适配（Gin）
 - Nova MySQL [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
-- Nova GORM [`starter/novagorm`](./starter/novagorm)：GORM 适配，基于 `novamysql` 连接
+- Nova GORM [`starter/novagorm`](./starter/novagorm)：GORM 动态装配，支持独立 DSN 或自定义 builder
 - [`starter/novaredis`](./starter/novaredis)：Redis 初始化
 - [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配
 - [`examples/`](./examples)：示例集合
@@ -61,7 +61,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 
 `starter/novamysql` 只负责 MySQL 原生连接初始化，向上提供 `*sql.DB`，不依赖 ORM。
 
-需要 GORM 时引入 `starter/novagorm`。`novagorm` 复用 `novamysql` 管理的连接并适配为 `*gorm.DB`，依赖方向保持为 `novagorm -> novamysql`。
+需要 GORM 时引入 `starter/novagorm`。Nova GORM 是 GORM 的统一装配层，不依赖 Nova MySQL：可以通过 `gorm.dsn` 独立初始化，也可以通过 `Register` 注入自定义 builder。需要复用 Nova MySQL 时，由应用层把 `novamysql.DB()` 通过 `Register` 动态装配进来。
 
 ## 快速开始
 

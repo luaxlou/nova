@@ -57,6 +57,16 @@ mysql:
       max_idle: 10
     analytics:
       dsn: analytics:password@tcp(localhost:3306)/analytics
+gorm:
+  default: main
+  instances:
+    main:
+      driver: mysql
+      dsn: root:password@tcp(localhost:3306)/app
+      skip_initialize_with_version: true
+    analytics:
+      driver: mysql
+      dsn: analytics:password@tcp(localhost:3306)/analytics
 redis:
   default: main
   instances:
@@ -87,9 +97,11 @@ redis:
 
 ### 3.4 novagorm
 
-提供 GORM 适配能力，复用 `novamysql` 管理的 `*sql.DB` 连接。
+提供 GORM 动态装配能力。可通过 `gorm.dsn` 独立初始化，也可通过 `Register` 注入自定义 builder。需要复用 `novamysql` 时，由应用层把 `novamysql.DB()` 装配进 `novagorm`。
 
 - `Init() error`
+- `Register(name string, builder Builder)`
+- `OpenMySQLFromSQLDB(db *sql.DB) (*gorm.DB, error)`
 - `Get() *gormInstance`
 - `Named(name string) *gormInstance`
 - `DB() (*gorm.DB, error)`
