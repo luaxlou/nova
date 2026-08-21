@@ -286,5 +286,9 @@ func asStringMap(value any) (map[string]any, bool) {
 		return converted, true
 	}
 
+	if raw, ok := value.(novaconfig.Config); ok {
+		return map[string]any(raw), true
+	}
+
 	return nil, false
 }
