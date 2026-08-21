@@ -40,19 +40,17 @@ func New[T any]() *Registry[T] {
 	}
 }
 
-// Configure sets the selected name and optional predefined definitions.
+// Configure replaces the selected name and definitions, and clears cached
+// instances so future access uses the new definitions.
 func (r *Registry[T]) Configure(selectedName string, defs map[string]Builder[T]) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.selectedName = selectedName
-	if defs != nil {
-		r.definitions = make(map[string]Builder[T], len(defs))
-		for name, fn := range defs {
-			r.definitions[name] = fn
-		}
-	} else if r.definitions == nil {
-		r.definitions = make(map[string]Builder[T])
+	r.instances = make(map[string]*entry[T])
+	r.definitions = make(map[string]Builder[T], len(defs))
+	for name, fn := range defs {
+		r.definitions[name] = fn
 	}
 }
 
@@ -86,6 +84,9 @@ func (r *Registry[T]) RegisterMap(defs map[string]Builder[T]) {
 // Named returns an instance handle. Empty name resolves only when a single
 // instance was selected by convention.
 func (r *Registry[T]) Named(name string) *Instance[T] {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if name == "" {
 		name = r.selectedName
 	}
@@ -99,8 +100,8 @@ func (r *Registry[T]) Get() *Instance[T] {
 
 // Definitions returns defined instance keys.
 func (r *Registry[T]) Definitions() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	keys := make([]string, 0, len(r.definitions))
 	for name := range r.definitions {
@@ -111,8 +112,8 @@ func (r *Registry[T]) Definitions() []string {
 
 // SelectedName returns the convention-selected instance name, if any.
 func (r *Registry[T]) SelectedName() string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.selectedName
 }
 
@@ -194,16 +195,20 @@ func (r *Registry[T]) reset(name string) {
 }
 
 func (r *Registry[T]) getOrBuild(name string) (T, error) {
-	r.ensureReady(name)
-
 	r.mu.Lock()
-	e := r.instances[name]
 	builder := r.definitions[name]
-	r.mu.Unlock()
 	if builder == nil {
+		r.mu.Unlock()
 		var zero T
 		return zero, fmt.Errorf("registry instance %q is not defined", name)
 	}
+
+	e := r.instances[name]
+	if e == nil {
+		e = &entry[T]{closed: true}
+		r.instances[name] = e
+	}
+	r.mu.Unlock()
 
 	e.once.Do(func() {
 		e.lock.Lock()
@@ -219,19 +224,4 @@ func (r *Registry[T]) getOrBuild(name string) (T, error) {
 	e.closed = false
 	e.lock.Unlock()
 	return e.value, nil
-}
-
-func (r *Registry[T]) ensureReady(name string) {
-	r.mu.Lock()
-	e, ok := r.instances[name]
-	if ok && e != nil {
-		r.mu.Unlock()
-		return
-	}
-
-	if r.instances == nil {
-		r.instances = make(map[string]*entry[T])
-	}
-	r.instances[name] = &entry[T]{closed: true}
-	r.mu.Unlock()
 }

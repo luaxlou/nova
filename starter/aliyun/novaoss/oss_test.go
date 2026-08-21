@@ -160,6 +160,85 @@ aliyun:
 	})
 }
 
+func TestReloadRebuildsDefinitionsFromCurrentNovaConfig(t *testing.T) {
+	loadConfig(t, `
+aliyun:
+  oss:
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    bucket: release-artifacts
+    access_key_id: first-access-key-id
+    access_key_secret: first-access-key-secret
+`)
+	resetForTest()
+
+	handle := Named("")
+	firstBucket, err := handle.Bucket()
+	if err != nil {
+		t.Fatalf("first Bucket() error = %v", err)
+	}
+	if firstBucket.BucketName != "release-artifacts" {
+		t.Fatalf("first bucket name = %q, want release-artifacts", firstBucket.BucketName)
+	}
+
+	loadConfig(t, `
+aliyun:
+  oss:
+    endpoint: https://oss-cn-shanghai.aliyuncs.com
+    bucket: compliance-reports
+    access_key_id: second-access-key-id
+    access_key_secret: second-access-key-secret
+`)
+
+	if err := Reload(); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+
+	reloadedBucket, err := handle.Bucket()
+	if err != nil {
+		t.Fatalf("Bucket() after Reload() error = %v", err)
+	}
+	if reloadedBucket.BucketName != "compliance-reports" {
+		t.Fatalf("reloaded bucket name = %q, want compliance-reports", reloadedBucket.BucketName)
+	}
+	if reloadedBucket.Client.Config.Endpoint != "https://oss-cn-shanghai.aliyuncs.com" {
+		t.Fatalf("reloaded endpoint = %q, want https://oss-cn-shanghai.aliyuncs.com", reloadedBucket.Client.Config.Endpoint)
+	}
+}
+
+func TestReloadInvalidConfigClearsCachedBucket(t *testing.T) {
+	loadConfig(t, `
+aliyun:
+  oss:
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    bucket: release-artifacts
+    access_key_id: first-access-key-id
+    access_key_secret: first-access-key-secret
+`)
+	resetForTest()
+
+	handle := Named("")
+	if _, err := handle.Bucket(); err != nil {
+		t.Fatalf("first Bucket() error = %v", err)
+	}
+
+	loadConfig(t, `
+aliyun:
+  oss:
+    endpoint: https://oss-cn-shanghai.aliyuncs.com
+    bucket: compliance-reports
+    access_key_id: second-access-key-id
+`)
+
+	err := Reload()
+	if err == nil || !strings.Contains(err.Error(), "reload aliyun.oss config") || !strings.Contains(err.Error(), "missing access_key_secret") {
+		t.Fatalf("Reload() error = %v, want contextual missing access_key_secret error", err)
+	}
+
+	if _, err := handle.Bucket(); err == nil || !strings.Contains(err.Error(), "missing access_key_secret") {
+		t.Fatalf("Bucket() after invalid Reload() error = %v, want missing access_key_secret error", err)
+	}
+}
+
 func TestExportedLifecyclePropagatesInitializationErrors(t *testing.T) {
 	config := `
 aliyun:
@@ -232,9 +311,6 @@ aliyun:
 			loadConfig(t, tt.config)
 			resetForTest()
 
-			if err := initFromConfig(); err != nil {
-				t.Fatalf("initFromConfig() error = %v", err)
-			}
 			if _, err := Bucket(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("Bucket() error = %v, want error containing %q", err, tt.wantErr)
 			}

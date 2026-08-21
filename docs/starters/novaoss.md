@@ -48,6 +48,22 @@ func main() {
 }
 ```
 
+## 重载配置
+
+应用切换配置路径或更新配置后，先调用 `novaconfig.Reload()`，再调用 `novaoss.Reload()`。后者会重新读取当前 `aliyun.oss` 配置、替换全部命名定义并清除已缓存的 Bucket；Bucket 仍在下一次访问时才创建。
+
+```go
+novaconfig.SetConfigPath("/etc/my-app/config.yaml")
+if err := novaconfig.Reload(); err != nil {
+	return err
+}
+if err := novaoss.Reload(); err != nil {
+	return err
+}
+```
+
+`novaoss.Reload()` 会返回带配置上下文的错误。重载失败时，旧的缓存定义会被清除，后续访问不会静默继续使用旧的 Bucket 配置。
+
 ## 约定
 
 - 配置挂在 `aliyun.oss` 下

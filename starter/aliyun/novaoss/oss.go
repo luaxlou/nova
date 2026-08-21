@@ -20,8 +20,7 @@ type Instance interface {
 }
 
 type ossInstance struct {
-	handle  *registry.Instance[*aliyunoss.Bucket]
-	initErr error
+	name string
 }
 
 var (
@@ -38,24 +37,33 @@ func initFromConfig() error {
 	if initialized {
 		return nil
 	}
+	return configureFromCurrentConfig("initialized")
+}
 
+func configureFromCurrentConfig(action string) error {
 	root, ok := asStringMap(novaconfig.Get("aliyun.oss"))
 	if !ok {
-		return fmt.Errorf("aliyun.oss config not found")
+		return invalidateConfig(fmt.Errorf("aliyun.oss config not found"))
 	}
 
 	definitions, selectedName, err := buildDefinitions(root)
 	if err != nil {
-		return err
+		return invalidateConfig(err)
 	}
 	if len(definitions) == 0 {
-		return fmt.Errorf("oss config missing instance definitions")
+		return invalidateConfig(fmt.Errorf("oss config missing instance definitions"))
 	}
 
 	reg.Configure(selectedName, definitions)
 	initialized = true
-	log.Printf("OSS Starter initialized, selected=%s", selectedName)
+	log.Printf("OSS Starter %s, selected=%s", action, selectedName)
 	return nil
+}
+
+func invalidateConfig(err error) error {
+	reg.Configure("", map[string]registry.Builder[*aliyunoss.Bucket]{})
+	initialized = false
+	return err
 }
 
 // Get returns the default OSS bucket handle.
@@ -65,11 +73,7 @@ func Get() *ossInstance {
 
 // Named returns the OSS bucket handle for name.
 func Named(name string) *ossInstance {
-	initErr := ensureInit()
-	return &ossInstance{
-		handle:  reg.Named(name),
-		initErr: initErr,
-	}
+	return &ossInstance{name: name}
 }
 
 // Bucket returns the default configured OSS bucket.
@@ -85,29 +89,31 @@ func Bucket() (*aliyunoss.Bucket, error) {
 
 // Bucket returns the configured OSS bucket for this handle.
 func (h *ossInstance) Bucket() (*aliyunoss.Bucket, error) {
-	if h.initErr != nil {
-		return nil, h.initErr
+	if err := ensureInit(); err != nil {
+		return nil, err
 	}
-	return h.handle.Get()
+	return reg.Named(h.name).Get()
 }
 
-// Reload rebuilds the default bucket handle.
+// Reload re-reads the current novaconfig aliyun.oss configuration, replaces
+// named definitions, and clears cached buckets. It does not create buckets
+// until they are accessed again.
 func Reload() error {
-	if err := ensureInit(); err != nil {
-		return err
+	initMu.Lock()
+	defer initMu.Unlock()
+
+	if err := configureFromCurrentConfig("reloaded"); err != nil {
+		return fmt.Errorf("reload aliyun.oss config: %w", err)
 	}
-	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
-		return fmt.Errorf("oss instance name is required when multiple instances are configured")
-	}
-	return Get().Reload()
+	return nil
 }
 
 // Reload rebuilds this bucket handle.
 func (h *ossInstance) Reload() error {
-	if h.initErr != nil {
-		return h.initErr
+	if err := ensureInit(); err != nil {
+		return err
 	}
-	return h.handle.Reload()
+	return reg.Named(h.name).Reload()
 }
 
 // Close releases the default cached bucket handle.
@@ -123,10 +129,10 @@ func Close() error {
 
 // Close releases this cached bucket handle.
 func (h *ossInstance) Close() error {
-	if h.initErr != nil {
-		return h.initErr
+	if err := ensureInit(); err != nil {
+		return err
 	}
-	return h.handle.Close()
+	return reg.Named(h.name).Close()
 }
 
 // CloseAll releases all cached bucket handles.
@@ -169,11 +175,18 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyuno
 		if !cfg.hasAnyRequiredField() {
 			continue
 		}
+		if err := cfg.validate(name); err != nil {
+			return nil, "", err
+		}
 		instances[name] = cfg
 	}
 
 	if len(instances) == 0 {
-		instances[singletonName] = parseOSSConfig(root)
+		cfg := parseOSSConfig(root)
+		if err := cfg.validate(singletonName); err != nil {
+			return nil, "", err
+		}
+		instances[singletonName] = cfg
 	}
 
 	definitions := make(map[string]registry.Builder[*aliyunoss.Bucket], len(instances))
@@ -190,6 +203,22 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyuno
 
 func (cfg ossConfig) hasAnyRequiredField() bool {
 	return cfg.Endpoint != "" || cfg.Bucket != "" || cfg.AccessKeyID != "" || cfg.AccessKeySecret != ""
+}
+
+func (cfg ossConfig) validate(name string) error {
+	if strings.TrimSpace(cfg.Endpoint) == "" {
+		return fmt.Errorf("oss instance %q config missing endpoint", name)
+	}
+	if strings.TrimSpace(cfg.Bucket) == "" {
+		return fmt.Errorf("oss instance %q config missing bucket", name)
+	}
+	if strings.TrimSpace(cfg.AccessKeyID) == "" {
+		return fmt.Errorf("oss instance %q config missing access_key_id", name)
+	}
+	if strings.TrimSpace(cfg.AccessKeySecret) == "" {
+		return fmt.Errorf("oss instance %q config missing access_key_secret", name)
+	}
+	return nil
 }
 
 func isReservedConfigKey(key string) bool {
@@ -212,17 +241,8 @@ func chooseSingleName(instances map[string]ossConfig) string {
 }
 
 func newBucket(name string, cfg ossConfig) (*aliyunoss.Bucket, error) {
-	if strings.TrimSpace(cfg.Endpoint) == "" {
-		return nil, fmt.Errorf("oss instance %q config missing endpoint", name)
-	}
-	if strings.TrimSpace(cfg.Bucket) == "" {
-		return nil, fmt.Errorf("oss instance %q config missing bucket", name)
-	}
-	if strings.TrimSpace(cfg.AccessKeyID) == "" {
-		return nil, fmt.Errorf("oss instance %q config missing access_key_id", name)
-	}
-	if strings.TrimSpace(cfg.AccessKeySecret) == "" {
-		return nil, fmt.Errorf("oss instance %q config missing access_key_secret", name)
+	if err := cfg.validate(name); err != nil {
+		return nil, err
 	}
 
 	options := make([]aliyunoss.ClientOption, 0, 1)
