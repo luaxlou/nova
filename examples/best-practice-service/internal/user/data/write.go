@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/luaxlou/nova/starter/novagorm"
+	"github.com/luaxlou/nova/orm/novagorm"
 )
 
 type InsertParams struct {

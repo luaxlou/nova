@@ -53,36 +53,90 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 
 ## 这个仓库包含什么
 
-- [`starter/novaconfig`](./starter/novaconfig)：配置读取
-- [`starter/novagin`](./starter/novagin)：HTTP 服务启动适配（Gin）
-- Nova MySQL [`starter/novamysql`](./starter/novamysql)：MySQL 初始化
-- Nova GORM [`starter/novagorm`](./starter/novagorm)：GORM 动态装配，支持独立 DSN 或自定义 builder
-- [`starter/novaredis`](./starter/novaredis)：Redis 初始化
-- Alibaba Cloud OSS [`starter/aliyun/novaoss`](./starter/aliyun/novaoss)：对象存储 Bucket 初始化
-- [`starter/novawebsocket`](./starter/novawebsocket)：WebSocket 适配
-- [`examples/`](./examples)：示例集合
+- [`starter/config/novaconfig`](./starter/config/novaconfig)：配置读取；说明见 [`docs/starters/novaconfig.md`](./docs/starters/novaconfig.md)
+- [`starter/http/novagin`](./starter/http/novagin)：HTTP 服务启动适配（Gin）；说明见 [`docs/starters/novagin.md`](./docs/starters/novagin.md)
+- [`starter/cache/novaredis`](./starter/cache/novaredis)：Redis 客户端初始化；说明见 [`docs/starters/novaredis.md`](./docs/starters/novaredis.md)
+- [`starter/aliyun/novaoss`](./starter/aliyun/novaoss)：Alibaba Cloud OSS Bucket 初始化；说明见 [`docs/starters/novaoss.md`](./docs/starters/novaoss.md)
+- [`starter/realtime/novawebsocket`](./starter/realtime/novawebsocket)：WebSocket 适配；说明见 [`docs/starters/novawebsocket.md`](./docs/starters/novawebsocket.md)
+- [`orm/novagorm`](./orm/novagorm)：GORM 装配工具，不属于 starter；说明见 [`docs/orm/novagorm.md`](./docs/orm/novagorm.md)
+- [`examples/`](./examples)：可运行示例集合
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
+- [`docs/starter_conventions.md`](./docs/starter_conventions.md)：Starter 统一约定
+- [`docs/starter_composition_matrix.md`](./docs/starter_composition_matrix.md)：Starter 组合矩阵
 - [`docs/nova_engineering_best_practices.md`](./docs/nova_engineering_best_practices.md)：Nova 工程最佳实践
 
-新增约定：当前二代默认配置文件为 `config.yaml`（YAML）。
+当前二代默认配置文件为 `config.yaml`（YAML）。需要读取配置的 starter 统一通过 `novaconfig` 获取配置；完整配置约定见 [`docs/starter_conventions.md`](./docs/starter_conventions.md) 与各 starter 专用说明。
 
-## Nova MySQL / Nova GORM 约定
+最小配置示例：
 
-`starter/novamysql` 只负责 MySQL 原生连接初始化，向上提供 `*sql.DB`，不依赖 ORM。
+```yaml
+# starter/http/novagin
+http:
+  port: 8080
 
-需要 GORM 时引入 `starter/novagorm`。Nova GORM 是 GORM 的统一装配层，不依赖 Nova MySQL：可以通过 `gorm.dsn` 独立初始化，也可以通过 `Register` 注入自定义 builder。需要复用 Nova MySQL 时，由应用层把 `novamysql.DB()` 通过 `Register` 动态装配进来。
+# orm/novagorm
+gorm:
+  main:
+    driver: mysql
+    mysql:
+      dsn: root:password@tcp(localhost:3306)/app?parseTime=true
+      max_open: 20
+      max_idle: 10
+  analytics:
+    driver: mysql
+    mysql:
+      dsn: analytics:password@tcp(localhost:3306)/analytics?parseTime=true
+
+# starter/cache/novaredis
+redis:
+  addr: localhost:6379
+  db: 0
+
+# starter/aliyun/novaoss
+aliyun:
+  oss:
+    endpoint: https://oss-<region>.aliyuncs.com
+    bucket: <bucket>
+    access_key_id: <runtime-secret>
+    access_key_secret: <runtime-secret>
+```
+
+## GORM / MySQL 约定
+
+MySQL 不再作为独立 Starter 对外提供，只是 [`orm/novagorm`](./orm/novagorm) 的一种 driver 选择。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver` 选择数据库类型，再把对应数据库配置放到 `mysql` 等 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
+
+## Starter 专用说明
+
+每个 starter 都应有一份专用说明，用来回答三个问题：
+
+- 配置从哪里读，使用哪些 key
+- 最小接入代码是什么
+- 与其他 starter 的组合边界是什么
+
+当前说明入口：
+
+- [`novaconfig`](./docs/starters/novaconfig.md)
+- [`novagin`](./docs/starters/novagin.md)
+- [`novaredis`](./docs/starters/novaredis.md)
+- [`novaoss`](./docs/starters/novaoss.md)
+- [`novawebsocket`](./docs/starters/novawebsocket.md)
+
+工具说明入口：
+
+- [`novagorm`](./docs/orm/novagorm.md)
 
 ## Alibaba Cloud OSS 约定
 
-`starter/aliyun/novaoss` 使用 Alibaba Cloud OSS 官方 Go SDK，按 `Init + Get/Named + Bucket + Reload/Close` 方式提供对象存储 Bucket。配置只从 `novaconfig` 读取；访问密钥和临时令牌必须来自运行时配置或密钥管理系统，禁止写入源代码或提交到仓库。
+`starter/aliyun/novaoss` 使用 Alibaba Cloud OSS 官方 Go SDK，按 `Get/Named + Bucket + Reload/Close` 方式提供对象存储 Bucket。配置从 `aliyun.oss` 读取；访问密钥和临时令牌必须来自运行时配置或密钥管理系统，禁止写入源代码或提交到仓库。
 
 ```yaml
-oss:
-  endpoint: https://oss-<region>.aliyuncs.com
-  bucket: <bucket>
-  access_key_id: <runtime-secret>
-  access_key_secret: <runtime-secret>
-  security_token: <optional-runtime-secret>
+aliyun:
+  oss:
+    endpoint: https://oss-<region>.aliyuncs.com
+    bucket: <bucket>
+    access_key_id: <runtime-secret>
+    access_key_secret: <runtime-secret>
+    security_token: <optional-runtime-secret>
 ```
 
 ```go
@@ -91,12 +145,12 @@ import "github.com/luaxlou/nova/starter/aliyun/novaoss"
 bucket, err := novaoss.Bucket()
 ```
 
-多个 Bucket 时，设置 `oss.default` 并将各配置放在 `oss.instances.<name>` 下；通过 `novaoss.Named("<name>").Bucket()` 获取指定 Bucket。
+多个 Bucket 时，设置 `aliyun.oss.default` 并将各配置放在 `aliyun.oss.instances.<name>` 下；通过 `novaoss.Named("<name>").Bucket()` 获取指定 Bucket。
 
 ## 快速开始
 
 ```bash
-go get github.com/luaxlou/nova/starter
+go get github.com/luaxlou/nova
 ```
 
 示例：
@@ -107,11 +161,11 @@ package main
 import (
     "fmt"
 
-    "github.com/luaxlou/nova/starter/novaconfig"
+    "github.com/luaxlou/nova/starter/config/novaconfig"
 )
 
 func main() {
-    fmt.Println(novaconfig.GetString("log_level"))
+    fmt.Println(novaconfig.GetString("app.name"))
 }
 ```
 

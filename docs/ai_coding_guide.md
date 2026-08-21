@@ -81,12 +81,11 @@ go vet ./...
 
 ## 快速索引
 
-- `starter/novaconfig`
-- `starter/novagin`
-- `starter/novamysql`
-- `starter/novagorm`
-- `starter/novaredis`
-- `starter/novawebsocket`
+- `starter/config/novaconfig`
+- `starter/http/novagin`
+- `orm/novagorm`
+- `starter/cache/novaredis`
+- `starter/realtime/novawebsocket`
 - `examples/simple-app`
 - `examples/best-practice-service`
 - `docs/nova_engineering_best_practices.md`

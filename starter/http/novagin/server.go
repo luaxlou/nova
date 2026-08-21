@@ -8,20 +8,14 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/luaxlou/nova/starter/config/novaconfig"
 )
 
 var (
 	engine      *gin.Engine
 	once        sync.Once
 	initialized bool
-	port        string
 )
-
-func Init(p int) {
-	port = ":" + strconv.Itoa(p)
-	// Initialize if explicitly called, though Run() will check too
-	// Maybe we can load port here if we want to fail fast
-}
 
 // Router returns the singleton Gin engine.
 // It initializes the engine on the first call.
@@ -51,33 +45,41 @@ func Run() {
 		Router()
 	}
 
-	// Priority: OP_APP_PORT > Init() Port > PORT > 8080
+	runPort := ""
+
+	// Priority: OP_APP_PORT > config http.port > PORT > 8080
 	// 1. Check override from Nova Server (OP_APP_PORT)
 	if p := os.Getenv("OP_APP_PORT"); p != "" {
-		port = ":" + p
+		runPort = ":" + p
 	}
 
-	// 2. If no override and no Init() port, check standard PORT env or default
-	if port == "" {
+	if runPort == "" {
+		if p := novaconfig.GetInt("http.port"); p > 0 {
+			runPort = ":" + strconv.Itoa(p)
+		}
+	}
+
+	// 2. If no override and no configured port, check standard PORT env or default
+	if runPort == "" {
 		p := os.Getenv("PORT")
 		if p == "" {
 			p = "8080"
 		}
 		// If p is just a number, prefix with :
 		if _, err := strconv.Atoi(p); err == nil {
-			port = ":" + p
+			runPort = ":" + p
 		} else {
-			port = p
+			runPort = p
 		}
 	}
 
 	srv := &http.Server{
-		Addr:    port,
+		Addr:    runPort,
 		Handler: engine,
 	}
 
 	go func() {
-		log.Printf("Server starting on %s", port)
+		log.Printf("Server starting on %s", runPort)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}

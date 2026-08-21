@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/luaxlou/nova/starter/novagin"
-	"github.com/luaxlou/nova/starter/novawebsocket"
+	"github.com/luaxlou/nova/starter/http/novagin"
+	"github.com/luaxlou/nova/starter/realtime/novawebsocket"
 )
 
 func main() {
@@ -25,7 +25,6 @@ func main() {
 		})
 	})
 
-	novagin.Init(8080)
 	novagin.Run()
 	log.Println("api-websocket started")
 	select {}

@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	aliyunoss "github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/luaxlou/nova/starter/internal/registry"
-	"github.com/luaxlou/nova/starter/novaconfig"
+	"github.com/luaxlou/nova/internal/registry"
+	"github.com/luaxlou/nova/starter/config/novaconfig"
 )
 
 // Instance is a named OSS bucket handle.
@@ -30,18 +30,16 @@ var (
 	reg         = registry.New[*aliyunoss.Bucket]()
 )
 
-// Init loads OSS instance definitions from novaconfig. Bucket clients remain
-// unconstructed until Bucket is called.
-func Init() error {
+func initFromConfig() error {
 	initMu.Lock()
 	defer initMu.Unlock()
 	if initialized {
 		return nil
 	}
 
-	root, ok := asStringMap(novaconfig.Get("oss"))
+	root, ok := asStringMap(novaconfig.Get("aliyun.oss"))
 	if !ok {
-		return fmt.Errorf("oss config not found. call novaoss.Init() after config file load")
+		return fmt.Errorf("aliyun.oss config not found")
 	}
 
 	definitions, defaultName, err := buildDefinitions(root)
@@ -55,7 +53,7 @@ func Init() error {
 		return fmt.Errorf("oss config default instance %q is not defined", defaultName)
 	}
 
-	reg.Init(defaultName, definitions)
+	reg.Configure(defaultName, definitions)
 	initialized = true
 	log.Printf("OSS Starter initialized, default=%s", defaultName)
 	return nil
@@ -126,7 +124,7 @@ func ensureInit() error {
 	if initialized {
 		return nil
 	}
-	return Init()
+	return initFromConfig()
 }
 
 type ossConfig struct {

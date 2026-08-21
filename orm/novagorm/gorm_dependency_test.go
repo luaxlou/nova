@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luaxlou/nova/starter/internal/registry"
+	"github.com/luaxlou/nova/internal/registry"
 	"gorm.io/gorm"
 )
 
@@ -22,16 +22,7 @@ func TestPackageDoesNotImportMySQLDriverDirectly(t *testing.T) {
 	}
 }
 
-func TestPackageDoesNotDependOnNovaMySQL(t *testing.T) {
-	imports := productionImports(t)
-	for _, path := range imports {
-		if path == "github.com/luaxlou/nova/starter/novamysql" {
-			t.Fatalf("novagorm should be dynamically assembled and must not import novamysql directly")
-		}
-	}
-}
-
-func TestDefaultDBFunctionReturnsGormDB(t *testing.T) {
+func TestDBFunctionReturnsGormDB(t *testing.T) {
 	var _ func() (*gorm.DB, error) = DB
 }
 
@@ -56,35 +47,85 @@ func TestRegisterProvidesDynamicAssembly(t *testing.T) {
 }
 
 func TestBuildDefinitionsSupportsDirectMySQLDialector(t *testing.T) {
-	defs, defaultName := buildDefinitions(map[string]any{
+	defs, selectedName := buildDefinitions(map[string]any{
 		"driver": "mysql",
-		"dsn":    "root:password@tcp(localhost:3306)/app",
+		"mysql": map[string]any{
+			"dsn": "root:password@tcp(localhost:3306)/app",
+		},
 	})
 
-	if defaultName != "default" {
-		t.Fatalf("defaultName = %q, want default", defaultName)
+	if selectedName != singletonName {
+		t.Fatalf("selected name = %q, want %s", selectedName, singletonName)
 	}
-	if defs["default"] == nil {
-		t.Fatalf("default definition was not built")
+	if defs[singletonName] == nil {
+		t.Fatalf("single definition was not built")
 	}
 }
 
 func TestBuildDefinitionsSupportsNamedDirectMySQLDialectors(t *testing.T) {
-	defs, defaultName := buildDefinitions(map[string]any{
-		"default": "reporting",
-		"instances": map[string]any{
-			"reporting": map[string]any{
-				"driver": "mysql",
-				"dsn":    "analytics:password@tcp(localhost:3306)/analytics",
+	defs, selectedName := buildDefinitions(map[string]any{
+		"main": map[string]any{
+			"driver": "mysql",
+			"mysql": map[string]any{
+				"dsn": "root:password@tcp(localhost:3306)/app",
+			},
+		},
+		"analytics": map[string]any{
+			"driver": "mysql",
+			"mysql": map[string]any{
+				"dsn": "analytics:password@tcp(localhost:3306)/analytics",
 			},
 		},
 	})
 
-	if defaultName != "reporting" {
-		t.Fatalf("defaultName = %q, want reporting", defaultName)
+	if selectedName != "" {
+		t.Fatalf("selected name = %q, want empty selection for multiple instances", selectedName)
 	}
-	if defs["reporting"] == nil {
-		t.Fatalf("reporting definition was not built")
+	if defs["main"] == nil {
+		t.Fatalf("main definition was not built")
+	}
+	if defs["analytics"] == nil {
+		t.Fatalf("analytics definition was not built")
+	}
+}
+
+func TestBuildDefinitionsSelectsOnlyNamedInstanceWhenThereIsOne(t *testing.T) {
+	defs, selectedName := buildDefinitions(map[string]any{
+		"analytics": map[string]any{
+			"driver": "mysql",
+			"mysql": map[string]any{
+				"dsn": "analytics:password@tcp(localhost:3306)/analytics",
+			},
+		},
+	})
+
+	if selectedName != "analytics" {
+		t.Fatalf("selected name = %q, want analytics", selectedName)
+	}
+	if defs["analytics"] == nil {
+		t.Fatalf("analytics definition was not built")
+	}
+}
+
+func TestParseGormConfigKeepsMySQLConfigUnderDriver(t *testing.T) {
+	got := parseGormConfig(map[string]any{
+		"driver": "mysql",
+		"mysql": map[string]any{
+			"dsn":                   "root:password@tcp(localhost:3306)/app",
+			"max_open_conns":        20,
+			"max_idle_conns":        10,
+			"conn_max_lifetime_sec": 1800,
+		},
+	})
+
+	if got.Driver != "mysql" {
+		t.Fatalf("Driver = %q, want mysql", got.Driver)
+	}
+	if got.MySQL.DSN == "" {
+		t.Fatalf("MySQL.DSN was empty")
+	}
+	if got.MySQL.MaxOpen != 20 || got.MySQL.MaxIdle != 10 || got.MySQL.ConnMaxLifetime != 1800 {
+		t.Fatalf("MySQL pool config = %#v, want parsed pool fields", got.MySQL)
 	}
 }
 
@@ -98,6 +139,21 @@ func TestRegisteredBuilderErrorIsReturned(t *testing.T) {
 
 	if _, err := Named("broken").DB(); !errors.Is(err, wantErr) {
 		t.Fatalf("Named(broken).DB() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestDBRequiresNameWhenMultipleBuildersAreRegistered(t *testing.T) {
+	resetForTest()
+
+	Register("main", func(string) (*gorm.DB, error) {
+		return &gorm.DB{}, nil
+	})
+	Register("analytics", func(string) (*gorm.DB, error) {
+		return &gorm.DB{}, nil
+	})
+
+	if _, err := DB(); err == nil || !strings.Contains(err.Error(), "gorm instance name is required") {
+		t.Fatalf("DB() error = %v, want instance name required error", err)
 	}
 }
 
@@ -165,4 +221,5 @@ func resetForTest() {
 	initialized = false
 	reg = registry.New[*gorm.DB]()
 	manualDefinitions = map[string]Builder{}
+	selectedInstanceName = ""
 }

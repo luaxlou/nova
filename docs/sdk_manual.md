@@ -4,12 +4,12 @@
 
 # Nova SDK 用户手册
 
-`nova/starter` 是 Nova 框架的 Go SDK，提供应用内能力接入组件。
+`nova` 是 Nova 框架的 Go SDK，提供应用内能力接入组件、Starter 与 ORM 工具。
 
 ## 1. 安装
 
 ```bash
-go get github.com/luaxlou/nova/starter
+go get github.com/luaxlou/nova
 ```
 
 ## 2. 快速开始
@@ -20,11 +20,11 @@ package main
 import (
     "fmt"
 
-    "github.com/luaxlou/nova/starter/novaconfig"
+    "github.com/luaxlou/nova/starter/config/novaconfig"
 )
 
 func main() {
-    fmt.Println(novaconfig.GetString("log_level"))
+    fmt.Println(novaconfig.GetString("app.name"))
 }
 ```
 
@@ -46,26 +46,25 @@ func main() {
 示例：
 
 ```yaml
-log_level: debug
-max_connections: 100
-mysql:
-  default: main
-  instances:
-    main:
+app:
+  name: demo
+
+# starter/http/novagin
+http:
+  port: 8080
+
+# orm/novagorm
+gorm:
+  main:
+    driver: mysql
+    mysql:
       dsn: root:password@tcp(localhost:3306)/app
       max_open: 20
       max_idle: 10
-    analytics:
-      dsn: analytics:password@tcp(localhost:3306)/analytics
-gorm:
-  default: main
-  instances:
-    main:
-      driver: mysql
-      dsn: root:password@tcp(localhost:3306)/app
       skip_initialize_with_version: true
-    analytics:
-      driver: mysql
+  analytics:
+    driver: mysql
+    mysql:
       dsn: analytics:password@tcp(localhost:3306)/analytics
 redis:
   default: main
@@ -79,27 +78,13 @@ redis:
 
 提供 HTTP 服务器启动适配（Gin）。
 
-- `Init(port int)`
 - `Router() *gin.Engine`
 - `Run()`
 
-### 3.3 novamysql
+### 3.3 novagorm
 
-提供 MySQL 连接初始化能力。
+提供 GORM 动态装配能力。`novagorm` 位于 `orm/novagorm`，不是 starter。GORM 支持多实例；数据库类型由 `gorm.<name>.driver` 选择，使用 MySQL 时配置放在 `gorm.<name>.mysql` 下。有多个实例时必须使用 `Named(name)` 获取。
 
-- `Init() error`
-- `Get() *mysqlInstance`
-- `Named(name string) *mysqlInstance`
-- `DB() (*sql.DB, error)`
-- `Reload()`
-- `Close() error`
-- `CloseAll() error`
-
-### 3.4 novagorm
-
-提供 GORM 动态装配能力。可通过 `gorm.dsn` 独立初始化，也可通过 `Register` 注入自定义 builder。需要复用 `novamysql` 时，由应用层把 `novamysql.DB()` 装配进 `novagorm`。
-
-- `Init() error`
 - `Register(name string, builder Builder)`
 - `OpenMySQLFromSQLDB(db *sql.DB) (*gorm.DB, error)`
 - `Get() *gormInstance`
@@ -109,11 +94,10 @@ redis:
 - `Close() error`
 - `CloseAll() error`
 
-### 3.5 novaredis
+### 3.4 novaredis
 
 提供 Redis 客户端初始化能力。
 
-- `Init() error`
 - `Client() (*redis.Client, error)`
 - `Get() *redisInstance`
 - `Named(name string) *redisInstance`

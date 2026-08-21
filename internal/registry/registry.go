@@ -16,7 +16,7 @@ type Instance[T any] struct {
 	r    *Registry[T]
 }
 
-// Registry unifies "Init -> Named -> Get/Reload/Close" behavior for starters.
+// Registry unifies "Configure -> Named -> Get/Reload/Close" behavior for starters.
 type Registry[T any] struct {
 	mu          sync.RWMutex
 	defaultName string
@@ -40,8 +40,8 @@ func New[T any]() *Registry[T] {
 	}
 }
 
-// Init only sets default name and optional predefined definitions.
-func (r *Registry[T]) Init(defaultName string, defs map[string]Builder[T]) {
+// Configure sets the selected name and optional predefined definitions.
+func (r *Registry[T]) Configure(defaultName string, defs map[string]Builder[T]) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

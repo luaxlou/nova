@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luaxlou/nova/starter/internal/registry"
-	"github.com/luaxlou/nova/starter/novaconfig"
+	"github.com/luaxlou/nova/internal/registry"
+	"github.com/luaxlou/nova/starter/config/novaconfig"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -29,7 +29,7 @@ var (
 	reg         = registry.New[*redis.Client]()
 )
 
-func Init() error {
+func initFromConfig() error {
 	initMu.Lock()
 	defer initMu.Unlock()
 	if initialized {
@@ -38,7 +38,7 @@ func Init() error {
 
 	root, ok := asStringMap(novaconfig.Get("redis"))
 	if !ok {
-		return fmt.Errorf("redis config not found. call novaredis.Init() after config file load")
+		return fmt.Errorf("redis config not found")
 	}
 
 	definitions, defaultName := buildDefinitions(root)
@@ -46,7 +46,7 @@ func Init() error {
 		return fmt.Errorf("redis config missing addr or instances")
 	}
 
-	reg.Init(defaultName, definitions)
+	reg.Configure(defaultName, definitions)
 	initialized = true
 	log.Printf("Redis Starter initialized, default=%s", defaultName)
 	return nil
@@ -180,7 +180,7 @@ func ensureInit() error {
 	if initialized {
 		return nil
 	}
-	return Init()
+	return initFromConfig()
 }
 
 type redisConfig struct {

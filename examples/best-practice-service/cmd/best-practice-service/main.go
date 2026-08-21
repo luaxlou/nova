@@ -5,14 +5,11 @@ import (
 
 	"github.com/luaxlou/nova/examples/best-practice-service/internal/user/data"
 	"github.com/luaxlou/nova/examples/best-practice-service/internal/user/http"
-	"github.com/luaxlou/nova/starter/novagin"
-	"github.com/luaxlou/nova/starter/novagorm"
+	"github.com/luaxlou/nova/orm/novagorm"
+	"github.com/luaxlou/nova/starter/http/novagin"
 )
 
 func main() {
-	if err := novagorm.Init(); err != nil {
-		log.Fatalf("gorm init failed: %v", err)
-	}
 	if err := initModels(); err != nil {
 		log.Fatalf("model init failed: %v", err)
 	}
@@ -21,7 +18,6 @@ func main() {
 
 	userhttp.Routes(r)
 
-	novagin.Init(8080)
 	novagin.Run()
 
 	log.Println("best-practice-service started")

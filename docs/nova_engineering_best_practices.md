@@ -23,7 +23,6 @@ Nova 提供应用需要的基础设施能力：
 ```text
 novaconfig
 novagin
-novamysql
 novagorm
 novaredis
 novawebsocket
@@ -40,30 +39,22 @@ Application
     │       └── HTTP
     ├── novagorm
     │       └── GORM
-    │           ↓
-    ├── novamysql
-    │       └── MySQL / *sql.DB
+    │           └── MySQL driver
     ├── novaredis
     │       └── Redis
     └── novawebsocket
             └── WebSocket
 ```
 
-数据库能力进一步分成：
+数据库能力由 ORM 工具统一装配：
 
 ```text
 novagorm
-    ↓
-novamysql
+    └── driver: mysql
+        └── gorm.mysql
 ```
 
-`novamysql` 管理数据库连接资源：`*sql.DB`、连接池、命名实例和生命周期。`novagorm` 在其上提供 ORM 能力：`*gorm.DB`、GORM adapter 和命名实例。应用只使用自己需要的能力：
-
-```go
-db, err := novamysql.DB()
-```
-
-或者：
+MySQL 不再是独立 Starter；它只是 `novagorm` 的一个 driver 选择。连接池、DSN、命名实例等数据库配置都挂在 `gorm.mysql` 或 `gorm.<name>.mysql` 下。
 
 ```go
 db, err := novagorm.DB()
@@ -75,7 +66,7 @@ db, err := novagorm.DB()
 db, err := novagorm.Named("analytics").DB()
 ```
 
-状态属于基础设施，因此由基础设施自己管理。
+只有一个 GORM 实例时可以使用 `novagorm.DB()`；有多个实例时，data capability 必须显式选择实例名。
 
 ## Nova 应用的整体模型
 
@@ -108,9 +99,7 @@ user/data.EmailExists
     ↓
 novagorm.DB
     ↓
-novamysql.DB
-    ↓
-MySQL
+GORM MySQL driver
 ```
 
 每一层只表达自己的责任：
@@ -184,15 +173,7 @@ MySQL
 
 ```go
 func main() {
-    if err := novagorm.Init(); err != nil {
-        log.Fatal(err)
-    }
-
     if err := initModels(); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := novaredis.Init(); err != nil {
         log.Fatal(err)
     }
 
@@ -201,7 +182,6 @@ func main() {
     orderhttp.Routes(r)
     paymenthttp.Routes(r)
 
-    novagin.Init(8080)
     novagin.Run()
 
     select {}
@@ -525,8 +505,6 @@ user
 user/data
  ↓
 novagorm
- ↓
-novamysql
 ```
 
 Data Capability 可以定义自己的边界类型，例如 `InsertParams`、`UpdateParams`、`QueryResult`、`UserModel`，这样 business 到 data 始终保持单向依赖。

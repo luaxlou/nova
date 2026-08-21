@@ -6,9 +6,10 @@ import (
 	"log"
 	"strconv"
 	"sync"
+	"time"
 
-	"github.com/luaxlou/nova/starter/internal/registry"
-	"github.com/luaxlou/nova/starter/novaconfig"
+	"github.com/luaxlou/nova/internal/registry"
+	"github.com/luaxlou/nova/starter/config/novaconfig"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -25,15 +26,18 @@ type gormInstance struct {
 	handle *registry.Instance[*gorm.DB]
 }
 
+const singletonName = "single"
+
 var (
 	initialized bool
 	initMu      sync.Mutex
 	reg         = registry.New[*gorm.DB]()
 
-	manualDefinitions = map[string]Builder{}
+	manualDefinitions    = map[string]Builder{}
+	selectedInstanceName = ""
 )
 
-func Init() error {
+func initFromConfig() error {
 	initMu.Lock()
 	defer initMu.Unlock()
 	if initialized {
@@ -45,22 +49,23 @@ func Init() error {
 		definitions[name] = builder
 	}
 
-	defaultName := ""
+	selectedName := ""
 	if root, ok := asStringMap(novaconfig.Get("gorm")); ok {
-		configDefinitions, configDefault := buildDefinitions(root)
+		configDefinitions, configSelected := buildDefinitions(root)
 		for name, builder := range configDefinitions {
 			definitions[name] = builder
 		}
-		defaultName = configDefault
+		selectedName = configSelected
 	}
 
-	if defaultName == "" {
-		defaultName = chooseDefaultName(definitions)
+	if selectedName == "" {
+		selectedName = chooseSingleName(definitions)
 	}
 
-	reg.Init(defaultName, definitions)
+	reg.Configure(selectedName, definitions)
+	selectedInstanceName = selectedName
 	initialized = true
-	log.Printf("GORM Starter initialized, default=%s", defaultName)
+	log.Printf("GORM tool initialized, selected=%s", selectedName)
 	return nil
 }
 
@@ -83,6 +88,10 @@ func Named(name string) *gormInstance {
 }
 
 func DB() (*gorm.DB, error) {
+	_ = ensureInit()
+	if selectedInstanceName == "" && len(reg.Definitions()) > 1 {
+		return nil, fmt.Errorf("gorm instance name is required when multiple instances are configured")
+	}
 	return Named("").DB()
 }
 
@@ -117,18 +126,25 @@ func buildDefinitions(root map[string]any) (map[string]Builder, string) {
 	instances := map[string]gormConfig{}
 	definitions := map[string]Builder{}
 
-	if rawInstances, ok := asStringMap(root["instances"]); ok {
-		for name := range rawInstances {
-			if cfgMap, ok := asStringMap(rawInstances[name]); ok {
-				instances[name] = parseGormConfig(cfgMap)
-			}
+	for name, raw := range root {
+		if isReservedConfigKey(name) {
+			continue
 		}
+		cfgMap, ok := asStringMap(raw)
+		if !ok {
+			continue
+		}
+		cfg := parseGormConfig(cfgMap)
+		if cfg.Driver == "" {
+			continue
+		}
+		instances[name] = cfg
 	}
 
 	if len(instances) == 0 {
 		cfg := parseGormConfig(root)
-		if cfg.Driver != "" || cfg.DSN != "" {
-			instances["default"] = cfg
+		if cfg.Driver != "" {
+			instances[singletonName] = cfg
 		}
 	}
 
@@ -136,10 +152,7 @@ func buildDefinitions(root map[string]any) (map[string]Builder, string) {
 		return nil, ""
 	}
 
-	defaultName := asString(root["default"])
-	if defaultName == "" {
-		defaultName = chooseConfigDefaultName(instances)
-	}
+	selectedName := chooseSingleConfigName(instances)
 
 	for name, cfg := range instances {
 		cfgCopy := cfg
@@ -148,14 +161,20 @@ func buildDefinitions(root map[string]any) (map[string]Builder, string) {
 		}
 	}
 
-	return definitions, defaultName
+	return definitions, selectedName
+}
+
+func isReservedConfigKey(key string) bool {
+	switch key {
+	case "default", "driver", "mysql":
+		return true
+	default:
+		return false
+	}
 }
 
 func newConfiguredConnection(cfg gormConfig) (*gorm.DB, error) {
 	driver := cfg.Driver
-	if driver == "" && cfg.DSN != "" {
-		driver = "mysql"
-	}
 
 	switch driver {
 	case "mysql":
@@ -166,13 +185,40 @@ func newConfiguredConnection(cfg gormConfig) (*gorm.DB, error) {
 }
 
 func newMySQLConnection(cfg gormConfig) (*gorm.DB, error) {
-	if cfg.DSN != "" {
-		return gorm.Open(gormmysql.New(gormmysql.Config{
-			DSN:                       cfg.DSN,
-			SkipInitializeWithVersion: cfg.SkipInitializeWithVersion,
+	if cfg.MySQL.DSN != "" {
+		db, err := gorm.Open(gormmysql.New(gormmysql.Config{
+			DSN:                       cfg.MySQL.DSN,
+			SkipInitializeWithVersion: cfg.MySQL.SkipInitializeWithVersion,
 		}), &gorm.Config{})
+		if err != nil {
+			return nil, err
+		}
+		if err := applyMySQLPoolConfig(db, cfg.MySQL); err != nil {
+			return nil, err
+		}
+		return db, nil
 	}
-	return nil, fmt.Errorf("gorm mysql config missing dsn")
+	return nil, fmt.Errorf("gorm mysql config missing mysql.dsn")
+}
+
+func applyMySQLPoolConfig(db *gorm.DB, cfg mysqlConfig) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get mysql sql db from gorm: %w", err)
+	}
+	if cfg.MaxOpen > 0 {
+		sqlDB.SetMaxOpenConns(cfg.MaxOpen)
+	}
+	if cfg.MaxIdle > 0 {
+		sqlDB.SetMaxIdleConns(cfg.MaxIdle)
+	}
+	if cfg.ConnMaxLifetime > 0 {
+		sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
+	}
+	if cfg.ConnMaxIdleTime > 0 {
+		sqlDB.SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTime) * time.Second)
+	}
+	return nil
 }
 
 func OpenMySQLFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
@@ -193,26 +239,54 @@ func ensureInit() error {
 	if initialized {
 		return nil
 	}
-	return Init()
+	return initFromConfig()
 }
 
 type gormConfig struct {
-	Driver                    string
+	Driver string
+	MySQL  mysqlConfig
+}
+
+type mysqlConfig struct {
 	DSN                       string
 	SkipInitializeWithVersion bool
+	MaxOpen                   int
+	MaxIdle                   int
+	ConnMaxLifetime           int
+	ConnMaxIdleTime           int
 }
 
 func parseGormConfig(raw map[string]any) gormConfig {
+	mysqlRaw, _ := asStringMap(raw["mysql"])
 	return gormConfig{
-		Driver:                    asString(raw["driver"]),
-		DSN:                       asString(raw["dsn"]),
-		SkipInitializeWithVersion: asBool(raw["skip_initialize_with_version"]),
+		Driver: asString(raw["driver"]),
+		MySQL:  parseMySQLConfig(mysqlRaw),
 	}
 }
 
-func chooseDefaultName(definitions map[string]Builder) string {
-	if definitions["default"] != nil {
-		return "default"
+func parseMySQLConfig(raw map[string]any) mysqlConfig {
+	return mysqlConfig{
+		DSN:                       asString(raw["dsn"]),
+		SkipInitializeWithVersion: asBool(raw["skip_initialize_with_version"]),
+		MaxOpen:                   firstInt(raw, "max_open", "max_open_conns"),
+		MaxIdle:                   firstInt(raw, "max_idle", "max_idle_conns"),
+		ConnMaxLifetime:           firstInt(raw, "conn_max_lifetime", "conn_max_lifetime_sec"),
+		ConnMaxIdleTime:           asInt(raw["conn_max_idle_time"]),
+	}
+}
+
+func firstInt(raw map[string]any, keys ...string) int {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			return asInt(value)
+		}
+	}
+	return 0
+}
+
+func chooseSingleName(definitions map[string]Builder) string {
+	if len(definitions) != 1 {
+		return ""
 	}
 	for name := range definitions {
 		return name
@@ -220,9 +294,9 @@ func chooseDefaultName(definitions map[string]Builder) string {
 	return ""
 }
 
-func chooseConfigDefaultName(instances map[string]gormConfig) string {
-	if _, ok := instances["default"]; ok {
-		return "default"
+func chooseSingleConfigName(instances map[string]gormConfig) string {
+	if len(instances) != 1 {
+		return ""
 	}
 	for name := range instances {
 		return name
@@ -253,6 +327,25 @@ func asBool(value any) bool {
 		return parsed
 	default:
 		return false
+	}
+}
+
+func asInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case string:
+		parsed, err := strconv.Atoi(typed)
+		if err != nil {
+			return 0
+		}
+		return parsed
+	default:
+		return 0
 	}
 }
 

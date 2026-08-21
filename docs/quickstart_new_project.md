@@ -13,18 +13,18 @@
 ## 5 步流程
 
 1. 接入依赖
-- 执行：`go get github.com/luaxlou/nova/starter`
+- 执行：`go get github.com/luaxlou/nova`
 
 2. 建立初始化骨架
 - 在 `main.go` 中先接入 `novaconfig` 与 `novagin`
-- 按需声明 `novamysql/novagorm/novaredis/novawebsocket`
+- 按需声明 `orm/novagorm`、`novaredis`、`novawebsocket`
 
 3. 统一路由与依赖注入入口
 - 所有启动逻辑集中在单一入口（建议 `cmd/<app>/main.go`）
 
 4. 补充可运行配置
 - 准备 `config.yaml`
-- 明确 `mysql.dsn`、`redis.addr`、`PORT` 等字段来源
+- 明确 `gorm.driver`、`gorm.mysql.dsn`、`redis.addr`、`PORT` 等字段来源
 
 5. 运行与验证
 - 启动服务并完成最小请求验证
