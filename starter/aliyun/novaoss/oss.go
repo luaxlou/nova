@@ -89,8 +89,8 @@ func (h *ossInstance) Bucket() (*aliyunoss.Bucket, error) {
 }
 
 // Reload rebuilds the default bucket handle.
-func Reload() {
-	_ = Get().Reload()
+func Reload() error {
+	return Get().Reload()
 }
 
 // Reload rebuilds this bucket handle.

@@ -119,8 +119,8 @@ oss:
 		loadConfig(t, config)
 		resetForTest()
 
-		if err := Get().Reload(); err != nil {
-			t.Fatalf("Get().Reload() error = %v", err)
+		if err := Reload(); err != nil {
+			t.Fatalf("Reload() error = %v", err)
 		}
 	})
 
@@ -128,14 +128,38 @@ oss:
 		loadConfig(t, config)
 		resetForTest()
 
-		handle := Get()
-		if err := handle.Close(); err != nil {
-			t.Fatalf("Get().Close() error = %v", err)
+		if err := Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
 		}
-		if _, err := handle.Bucket(); err != nil {
-			t.Fatalf("Get().Bucket() after Close() error = %v", err)
+		if _, err := Bucket(); err != nil {
+			t.Fatalf("Bucket() after Close() error = %v", err)
 		}
 	})
+}
+
+func TestExportedLifecyclePropagatesInitializationErrors(t *testing.T) {
+	config := `
+oss:
+  instances: {}
+`
+
+	for _, lifecycle := range []struct {
+		name string
+		call func() error
+	}{
+		{name: "Reload", call: Reload},
+		{name: "Close", call: Close},
+	} {
+		t.Run(lifecycle.name, func(t *testing.T) {
+			loadConfig(t, config)
+			resetForTest()
+
+			err := lifecycle.call()
+			if err == nil || !strings.Contains(err.Error(), "oss config instances must define at least one named instance") {
+				t.Fatalf("%s() error = %v, want empty instances error", lifecycle.name, err)
+			}
+		})
+	}
 }
 
 func TestInitRejectsUnknownDefaultInstance(t *testing.T) {
@@ -174,6 +198,27 @@ oss:
   instances: invalid
 `,
 			wantErr: "oss config instances must be a map",
+		},
+		{
+			name: "instances is empty",
+			config: `
+oss:
+  instances: {}
+`,
+			wantErr: "oss config instances must define at least one named instance",
+		},
+		{
+			name: "named instance key is empty",
+			config: `
+oss:
+  instances:
+    "":
+      endpoint: https://oss-cn-hangzhou.aliyuncs.com
+      bucket: unnamed-bucket
+      access_key_id: unnamed-access-key-id
+      access_key_secret: unnamed-access-key-secret
+`,
+			wantErr: "oss config instances contains an empty instance name",
 		},
 		{
 			name: "named entry is not a map",
