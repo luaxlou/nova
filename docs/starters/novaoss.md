@@ -19,18 +19,16 @@ aliyun:
 ```yaml
 aliyun:
   oss:
-    default: public
-    instances:
-      public:
-        endpoint: https://oss-<region>.aliyuncs.com
-        bucket: public-assets
-        access_key_id: <runtime-secret>
-        access_key_secret: <runtime-secret>
-      private:
-        endpoint: https://oss-<region>.aliyuncs.com
-        bucket: private-assets
-        access_key_id: <runtime-secret>
-        access_key_secret: <runtime-secret>
+    public:
+      endpoint: https://oss-<region>.aliyuncs.com
+      bucket: public-assets
+      access_key_id: <runtime-secret>
+      access_key_secret: <runtime-secret>
+    private:
+      endpoint: https://oss-<region>.aliyuncs.com
+      bucket: private-assets
+      access_key_id: <runtime-secret>
+      access_key_secret: <runtime-secret>
 ```
 
 ## 最小用法
@@ -53,6 +51,6 @@ func main() {
 ## 约定
 
 - 配置挂在 `aliyun.oss` 下
-- 默认 Bucket 使用 `novaoss.Bucket()` 或 `novaoss.Get().Bucket()`
-- 命名 Bucket 使用 `novaoss.Named("private").Bucket()`
+- 只有一个实例时可以使用 `novaoss.Bucket()`
+- 有多个实例时必须使用 `novaoss.Named("<name>").Bucket()`
 - 访问密钥和临时令牌必须来自运行时配置或密钥管理系统，禁止写入源代码或提交到仓库

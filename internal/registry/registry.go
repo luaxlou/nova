@@ -18,10 +18,10 @@ type Instance[T any] struct {
 
 // Registry unifies "Configure -> Named -> Get/Reload/Close" behavior for starters.
 type Registry[T any] struct {
-	mu          sync.RWMutex
-	defaultName string
-	definitions map[string]Builder[T]
-	instances   map[string]*entry[T]
+	mu           sync.RWMutex
+	selectedName string
+	definitions  map[string]Builder[T]
+	instances    map[string]*entry[T]
 }
 
 type entry[T any] struct {
@@ -41,11 +41,11 @@ func New[T any]() *Registry[T] {
 }
 
 // Configure sets the selected name and optional predefined definitions.
-func (r *Registry[T]) Configure(defaultName string, defs map[string]Builder[T]) {
+func (r *Registry[T]) Configure(selectedName string, defs map[string]Builder[T]) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.defaultName = defaultName
+	r.selectedName = selectedName
 	if defs != nil {
 		r.definitions = make(map[string]Builder[T], len(defs))
 		for name, fn := range defs {
@@ -83,15 +83,16 @@ func (r *Registry[T]) RegisterMap(defs map[string]Builder[T]) {
 	}
 }
 
-// Named returns an instance handle. Empty name resolves to default instance.
+// Named returns an instance handle. Empty name resolves only when a single
+// instance was selected by convention.
 func (r *Registry[T]) Named(name string) *Instance[T] {
 	if name == "" {
-		name = r.defaultName
+		name = r.selectedName
 	}
 	return &Instance[T]{name: name, r: r}
 }
 
-// Get is an explicit default-instance access helper.
+// Get is an explicit selected-instance access helper.
 func (r *Registry[T]) Get() *Instance[T] {
 	return r.Named("")
 }
@@ -106,6 +107,13 @@ func (r *Registry[T]) Definitions() []string {
 		keys = append(keys, name)
 	}
 	return keys
+}
+
+// SelectedName returns the convention-selected instance name, if any.
+func (r *Registry[T]) SelectedName() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.selectedName
 }
 
 // Get resolves and returns the instance value.

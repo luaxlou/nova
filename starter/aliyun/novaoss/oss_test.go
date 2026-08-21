@@ -11,7 +11,7 @@ import (
 	"github.com/luaxlou/nova/starter/config/novaconfig"
 )
 
-func TestBucketBuildsDefaultInstanceFromNovaConfig(t *testing.T) {
+func TestBucketBuildsSingleInstanceFromNovaConfig(t *testing.T) {
 	loadConfig(t, `
 aliyun:
   oss:
@@ -42,18 +42,16 @@ aliyun:
 	}
 }
 
-func TestNamedUsesConfiguredDefaultAndNamedInstances(t *testing.T) {
+func TestNamedUsesConfiguredInstances(t *testing.T) {
 	loadConfig(t, `
 aliyun:
   oss:
-    default: reporting
-    instances:
-      reports:
+    reports:
         endpoint: https://oss-cn-shanghai.aliyuncs.com
         bucket: report-archives
         access_key_id: reports-access-key-id
         access_key_secret: reports-access-key-secret
-      reporting:
+    reporting:
         endpoint: https://oss-cn-beijing.aliyuncs.com
         bucket: reporting-data
         access_key_id: reporting-access-key-id
@@ -65,20 +63,42 @@ aliyun:
 		t.Fatalf("initFromConfig() error = %v", err)
 	}
 
-	defaultBucket, err := Get().Bucket()
-	if err != nil {
-		t.Fatalf("Get().Bucket() error = %v", err)
-	}
-	if defaultBucket.BucketName != "reporting-data" {
-		t.Fatalf("default bucket = %q, want reporting-data", defaultBucket.BucketName)
-	}
-
 	reportsBucket, err := Named("reports").Bucket()
 	if err != nil {
 		t.Fatalf("Named(reports).Bucket() error = %v", err)
 	}
 	if reportsBucket.BucketName != "report-archives" {
 		t.Fatalf("named bucket = %q, want report-archives", reportsBucket.BucketName)
+	}
+
+	reportingBucket, err := Named("reporting").Bucket()
+	if err != nil {
+		t.Fatalf("Named(reporting).Bucket() error = %v", err)
+	}
+	if reportingBucket.BucketName != "reporting-data" {
+		t.Fatalf("named bucket = %q, want reporting-data", reportingBucket.BucketName)
+	}
+}
+
+func TestBucketRequiresNameWhenMultipleInstancesConfigured(t *testing.T) {
+	loadConfig(t, `
+aliyun:
+  oss:
+    reports:
+        endpoint: https://oss-cn-shanghai.aliyuncs.com
+        bucket: report-archives
+        access_key_id: reports-access-key-id
+        access_key_secret: reports-access-key-secret
+    reporting:
+        endpoint: https://oss-cn-beijing.aliyuncs.com
+        bucket: reporting-data
+        access_key_id: reporting-access-key-id
+        access_key_secret: reporting-access-key-secret
+`)
+	resetForTest()
+
+	if _, err := Bucket(); err == nil || !strings.Contains(err.Error(), "oss instance name is required") {
+		t.Fatalf("Bucket() error = %v, want instance name required error", err)
 	}
 }
 
@@ -143,121 +163,15 @@ aliyun:
 func TestExportedLifecyclePropagatesInitializationErrors(t *testing.T) {
 	config := `
 aliyun:
-  oss:
-    instances: {}
+  oss: {}
 `
 
-	for _, lifecycle := range []struct {
-		name string
-		call func() error
-	}{
-		{name: "Reload", call: Reload},
-		{name: "Close", call: Close},
-	} {
-		t.Run(lifecycle.name, func(t *testing.T) {
-			loadConfig(t, config)
-			resetForTest()
-
-			err := lifecycle.call()
-			if err == nil || !strings.Contains(err.Error(), "oss config instances must define at least one named instance") {
-				t.Fatalf("%s() error = %v, want empty instances error", lifecycle.name, err)
-			}
-		})
-	}
-}
-
-func TestInitRejectsUnknownDefaultInstance(t *testing.T) {
-	loadConfig(t, `
-aliyun:
-  oss:
-    default: reporting
-    instances:
-      reports:
-        endpoint: https://oss-cn-shanghai.aliyuncs.com
-        bucket: report-archives
-        access_key_id: reports-access-key-id
-        access_key_secret: reports-access-key-secret
-`)
+	loadConfig(t, config)
 	resetForTest()
 
-	err := initFromConfig()
-	if err == nil || !strings.Contains(err.Error(), `default instance "reporting" is not defined`) {
-		t.Fatalf("initFromConfig() error = %v, want missing default instance error", err)
-	}
-}
-
-func TestInitRejectsMalformedNamedInstances(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  string
-		wantErr string
-	}{
-		{
-			name: "instances is not a map",
-			config: `
-aliyun:
-  oss:
-    endpoint: https://oss-cn-hangzhou.aliyuncs.com
-    bucket: fallback-bucket
-    access_key_id: fallback-access-key-id
-    access_key_secret: fallback-access-key-secret
-    instances: invalid
-`,
-			wantErr: "oss config instances must be a map",
-		},
-		{
-			name: "instances is empty",
-			config: `
-aliyun:
-  oss:
-    instances: {}
-`,
-			wantErr: "oss config instances must define at least one named instance",
-		},
-		{
-			name: "named instance key is empty",
-			config: `
-aliyun:
-  oss:
-    instances:
-      "":
-        endpoint: https://oss-cn-hangzhou.aliyuncs.com
-        bucket: unnamed-bucket
-        access_key_id: unnamed-access-key-id
-        access_key_secret: unnamed-access-key-secret
-`,
-			wantErr: "oss config instances contains an empty instance name",
-		},
-		{
-			name: "named entry is not a map",
-			config: `
-aliyun:
-  oss:
-    default: reporting
-    instances:
-      reporting:
-        endpoint: https://oss-cn-hangzhou.aliyuncs.com
-        bucket: reporting-bucket
-        access_key_id: reporting-access-key-id
-        access_key_secret: reporting-access-key-secret
-      archive: invalid
-`,
-			wantErr: "oss config instances.archive must be a map",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			loadConfig(t, tt.config)
-			resetForTest()
-
-			if err := initFromConfig(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("initFromConfig() error = %v, want error containing %q", err, tt.wantErr)
-			}
-			if _, err := Bucket(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("Bucket() error = %v, want error containing %q", err, tt.wantErr)
-			}
-		})
+	err := Reload()
+	if err == nil || !strings.Contains(err.Error(), "missing endpoint") {
+		t.Fatalf("Reload() error = %v, want missing endpoint error", err)
 	}
 }
 

@@ -145,7 +145,7 @@ import "github.com/luaxlou/nova/starter/aliyun/novaoss"
 bucket, err := novaoss.Bucket()
 ```
 
-多个 Bucket 时，设置 `aliyun.oss.default` 并将各配置放在 `aliyun.oss.instances.<name>` 下；通过 `novaoss.Named("<name>").Bucket()` 获取指定 Bucket。
+多个 Bucket 时，直接配置在 `aliyun.oss.<name>` 下；通过 `novaoss.Named("<name>").Bucket()` 获取指定 Bucket。只有一个 Bucket 时可以直接使用 `novaoss.Bucket()`。
 
 ## 快速开始
 

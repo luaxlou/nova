@@ -45,8 +45,8 @@
 | --- | --- | --- | --- |
 | `starter/config/novaconfig` | `config.yaml` | 无固定业务 key | 负责读取 YAML 配置，并支持点号读取嵌套 key |
 | `starter/http/novagin` | `novaconfig` / 环境变量 | `http.port` | 端口优先级为 `OP_APP_PORT`、`http.port`、`PORT`、`8080` |
-| `starter/cache/novaredis` | `novaconfig` | `redis` | 支持单实例与 `redis.instances.<name>` |
-| `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.instances.<name>` |
+| `starter/cache/novaredis` | `novaconfig` | `redis` | 支持单实例与 `redis.<name>` 多实例 |
+| `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.<name>` 多实例 |
 | `starter/realtime/novawebsocket` | 代码默认值 | 无 | 默认使用宽松 Upgrader，生产环境建议应用层收紧 `CheckOrigin` |
 
 GORM 位于 [`orm/novagorm`](./orm/novagorm.md)，是 ORM 装配工具，不属于 `starter/*`。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
@@ -73,22 +73,26 @@ gorm:
 
 # starter/cache/novaredis
 redis:
-  default: main
-  instances:
-    main:
-      addr: localhost:6379
-      db: 0
+  main:
+    addr: localhost:6379
+    db: 0
+  cache:
+    addr: localhost:6380
+    db: 1
 
 # starter/aliyun/novaoss
 aliyun:
   oss:
-    default: public
-    instances:
-      public:
-        endpoint: https://oss-<region>.aliyuncs.com
-        bucket: public-assets
-        access_key_id: <runtime-secret>
-        access_key_secret: <runtime-secret>
+    public:
+      endpoint: https://oss-<region>.aliyuncs.com
+      bucket: public-assets
+      access_key_id: <runtime-secret>
+      access_key_secret: <runtime-secret>
+    private:
+      endpoint: https://oss-<region>.aliyuncs.com
+      bucket: private-assets
+      access_key_id: <runtime-secret>
+      access_key_secret: <runtime-secret>
 ```
 
 ## 专用说明

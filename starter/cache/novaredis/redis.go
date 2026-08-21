@@ -29,6 +29,8 @@ var (
 	reg         = registry.New[*redis.Client]()
 )
 
+const singletonName = "single"
+
 func initFromConfig() error {
 	initMu.Lock()
 	defer initMu.Unlock()
@@ -41,14 +43,14 @@ func initFromConfig() error {
 		return fmt.Errorf("redis config not found")
 	}
 
-	definitions, defaultName := buildDefinitions(root)
+	definitions, selectedName := buildDefinitions(root)
 	if len(definitions) == 0 {
 		return fmt.Errorf("redis config missing addr or instances")
 	}
 
-	reg.Configure(defaultName, definitions)
+	reg.Configure(selectedName, definitions)
 	initialized = true
-	log.Printf("Redis Starter initialized, default=%s", defaultName)
+	log.Printf("Redis Starter initialized, selected=%s", selectedName)
 	return nil
 }
 
@@ -63,6 +65,10 @@ func Named(name string) *redisInstance {
 }
 
 func Client() (*redis.Client, error) {
+	_ = ensureInit()
+	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
+		return nil, fmt.Errorf("redis instance name is required when multiple instances are configured")
+	}
 	return Named("").Client()
 }
 
@@ -85,6 +91,9 @@ func Reload() {
 
 func Close() error {
 	_ = ensureInit()
+	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
+		return fmt.Errorf("redis instance name is required when multiple instances are configured")
+	}
 	return Get().Close()
 }
 
@@ -97,33 +106,29 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*redis.C
 	instances := map[string]redisConfig{}
 	definitions := map[string]registry.Builder[*redis.Client]{}
 
-	if rawInstances, ok := asStringMap(root["instances"]); ok {
-		for name := range rawInstances {
-			if cfgMap, ok := asStringMap(rawInstances[name]); ok {
-				instances[name] = parseRedisConfig(cfgMap)
-			}
+	for name, raw := range root {
+		if isReservedConfigKey(name) {
+			continue
 		}
+		cfgMap, ok := asStringMap(raw)
+		if !ok {
+			continue
+		}
+		cfg := parseRedisConfig(cfgMap)
+		if cfg.Addr == "" {
+			continue
+		}
+		instances[name] = cfg
 	}
 
 	if len(instances) == 0 {
 		if addr := asString(root["addr"]); addr != "" {
-			instances["default"] = parseRedisConfig(root)
+			instances[singletonName] = parseRedisConfig(root)
 		}
 	}
 
 	if len(instances) == 0 {
 		return nil, ""
-	}
-
-	defaultName := asString(root["default"])
-	if defaultName == "" {
-		for name := range instances {
-			defaultName = name
-			break
-		}
-	}
-	if defaultName == "" {
-		defaultName = "default"
 	}
 
 	for name, cfg := range instances {
@@ -133,7 +138,26 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*redis.C
 		}
 	}
 
-	return definitions, defaultName
+	return definitions, chooseSingleName(instances)
+}
+
+func isReservedConfigKey(key string) bool {
+	switch key {
+	case "addr", "username", "password", "db", "pool_size", "min_idle_conns", "max_retries", "dial_timeout", "read_timeout", "write_timeout":
+		return true
+	default:
+		return false
+	}
+}
+
+func chooseSingleName(instances map[string]redisConfig) string {
+	if len(instances) != 1 {
+		return ""
+	}
+	for name := range instances {
+		return name
+	}
+	return ""
 }
 
 func newRedisConnection(cfg redisConfig) (*redis.Client, error) {

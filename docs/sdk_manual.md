@@ -67,11 +67,12 @@ gorm:
     mysql:
       dsn: analytics:password@tcp(localhost:3306)/analytics
 redis:
-  default: main
-  instances:
-    main:
-      addr: localhost:6379
-      db: 0
+  main:
+    addr: localhost:6379
+    db: 0
+  cache:
+    addr: localhost:6380
+    db: 1
 ```
 
 ### 3.2 novagin

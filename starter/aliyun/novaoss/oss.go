@@ -30,6 +30,8 @@ var (
 	reg         = registry.New[*aliyunoss.Bucket]()
 )
 
+const singletonName = "single"
+
 func initFromConfig() error {
 	initMu.Lock()
 	defer initMu.Unlock()
@@ -42,20 +44,17 @@ func initFromConfig() error {
 		return fmt.Errorf("aliyun.oss config not found")
 	}
 
-	definitions, defaultName, err := buildDefinitions(root)
+	definitions, selectedName, err := buildDefinitions(root)
 	if err != nil {
 		return err
 	}
 	if len(definitions) == 0 {
 		return fmt.Errorf("oss config missing instance definitions")
 	}
-	if definitions[defaultName] == nil {
-		return fmt.Errorf("oss config default instance %q is not defined", defaultName)
-	}
 
-	reg.Configure(defaultName, definitions)
+	reg.Configure(selectedName, definitions)
 	initialized = true
-	log.Printf("OSS Starter initialized, default=%s", defaultName)
+	log.Printf("OSS Starter initialized, selected=%s", selectedName)
 	return nil
 }
 
@@ -75,6 +74,12 @@ func Named(name string) *ossInstance {
 
 // Bucket returns the default configured OSS bucket.
 func Bucket() (*aliyunoss.Bucket, error) {
+	if err := ensureInit(); err != nil {
+		return nil, err
+	}
+	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
+		return nil, fmt.Errorf("oss instance name is required when multiple instances are configured")
+	}
 	return Get().Bucket()
 }
 
@@ -88,6 +93,12 @@ func (h *ossInstance) Bucket() (*aliyunoss.Bucket, error) {
 
 // Reload rebuilds the default bucket handle.
 func Reload() error {
+	if err := ensureInit(); err != nil {
+		return err
+	}
+	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
+		return fmt.Errorf("oss instance name is required when multiple instances are configured")
+	}
 	return Get().Reload()
 }
 
@@ -101,6 +112,12 @@ func (h *ossInstance) Reload() error {
 
 // Close releases the default cached bucket handle.
 func Close() error {
+	if err := ensureInit(); err != nil {
+		return err
+	}
+	if reg.SelectedName() == "" && len(reg.Definitions()) > 1 {
+		return fmt.Errorf("oss instance name is required when multiple instances are configured")
+	}
 	return Get().Close()
 }
 
@@ -137,33 +154,26 @@ type ossConfig struct {
 
 func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyunoss.Bucket], string, error) {
 	instances := map[string]ossConfig{}
-	rawInstances, instancesConfigured := root["instances"]
-	if instancesConfigured {
-		instanceConfigs, ok := asStringMap(rawInstances)
+	for name, raw := range root {
+		if isReservedConfigKey(name) {
+			continue
+		}
+		cfgMap, ok := asStringMap(raw)
 		if !ok {
-			return nil, "", fmt.Errorf("oss config instances must be a map")
+			continue
 		}
-		if len(instanceConfigs) == 0 {
-			return nil, "", fmt.Errorf("oss config instances must define at least one named instance")
+		if strings.TrimSpace(name) == "" {
+			return nil, "", fmt.Errorf("oss config contains an empty instance name")
 		}
-
-		for name, raw := range instanceConfigs {
-			if strings.TrimSpace(name) == "" {
-				return nil, "", fmt.Errorf("oss config instances contains an empty instance name")
-			}
-			cfgMap, ok := asStringMap(raw)
-			if !ok {
-				return nil, "", fmt.Errorf("oss config instances.%s must be a map", name)
-			}
-			instances[name] = parseOSSConfig(cfgMap)
+		cfg := parseOSSConfig(cfgMap)
+		if !cfg.hasAnyRequiredField() {
+			continue
 		}
-	} else {
-		instances["default"] = parseOSSConfig(root)
+		instances[name] = cfg
 	}
 
-	defaultName := asString(root["default"])
-	if defaultName == "" {
-		defaultName = chooseDefaultName(instances)
+	if len(instances) == 0 {
+		instances[singletonName] = parseOSSConfig(root)
 	}
 
 	definitions := make(map[string]registry.Builder[*aliyunoss.Bucket], len(instances))
@@ -175,12 +185,25 @@ func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyuno
 		}
 	}
 
-	return definitions, defaultName, nil
+	return definitions, chooseSingleName(instances), nil
 }
 
-func chooseDefaultName(instances map[string]ossConfig) string {
-	if _, ok := instances["default"]; ok {
-		return "default"
+func (cfg ossConfig) hasAnyRequiredField() bool {
+	return cfg.Endpoint != "" || cfg.Bucket != "" || cfg.AccessKeyID != "" || cfg.AccessKeySecret != ""
+}
+
+func isReservedConfigKey(key string) bool {
+	switch key {
+	case "endpoint", "bucket", "access_key_id", "access_key_secret", "security_token":
+		return true
+	default:
+		return false
+	}
+}
+
+func chooseSingleName(instances map[string]ossConfig) string {
+	if len(instances) != 1 {
+		return ""
 	}
 	for name := range instances {
 		return name

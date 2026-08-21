@@ -22,14 +22,12 @@ redis:
 
 ```yaml
 redis:
-  default: main
-  instances:
-    main:
-      addr: localhost:6379
-      db: 0
-    cache:
-      addr: localhost:6380
-      db: 1
+  main:
+    addr: localhost:6379
+    db: 0
+  cache:
+    addr: localhost:6380
+    db: 1
 ```
 
 ## 最小用法
@@ -51,5 +49,5 @@ func main() {
 ## 约定
 
 - 配置顶层 key 为 `redis`
-- 默认客户端使用 `novaredis.Client()` 或 `novaredis.Get().Client()`
-- 命名客户端使用 `novaredis.Named("cache").Client()`
+- 只有一个实例时可以使用 `novaredis.Client()`
+- 有多个实例时必须使用 `novaredis.Named("<name>").Client()`
