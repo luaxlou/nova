@@ -16,6 +16,21 @@ import (
 
 type Builder = registry.Builder[*gorm.DB]
 
+type gormResource struct {
+	db *gorm.DB
+}
+
+func (r *gormResource) Close() error {
+	if r == nil || r.db == nil {
+		return nil
+	}
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return fmt.Errorf("get sql db while closing gorm: %w", err)
+	}
+	return sqlDB.Close()
+}
+
 type Instance interface {
 	DB() (*gorm.DB, error)
 	Reload() error
@@ -23,7 +38,7 @@ type Instance interface {
 }
 
 type gormInstance struct {
-	handle *registry.Instance[*gorm.DB]
+	handle *registry.Instance[*gormResource]
 }
 
 const singletonName = "single"
@@ -31,7 +46,7 @@ const singletonName = "single"
 var (
 	initialized bool
 	initMu      sync.Mutex
-	reg         = registry.New[*gorm.DB]()
+	reg         = registry.New[*gormResource]()
 
 	manualDefinitions    = map[string]Builder{}
 	selectedInstanceName = ""
@@ -62,7 +77,7 @@ func initFromConfig() error {
 		selectedName = chooseSingleName(definitions)
 	}
 
-	reg.Configure(selectedName, definitions)
+	reg.Configure(selectedName, wrapBuilders(definitions))
 	selectedInstanceName = selectedName
 	initialized = true
 	log.Printf("GORM tool initialized, selected=%s", selectedName)
@@ -74,7 +89,7 @@ func Register(name string, builder Builder) {
 	defer initMu.Unlock()
 
 	manualDefinitions[name] = builder
-	reg.Register(name, builder)
+	reg.Register(name, wrapBuilder(builder))
 }
 
 func Get() *gormInstance {
@@ -96,7 +111,11 @@ func DB() (*gorm.DB, error) {
 }
 
 func (h *gormInstance) DB() (*gorm.DB, error) {
-	return h.handle.Get()
+	resource, err := h.handle.Get()
+	if err != nil {
+		return nil, err
+	}
+	return resource.db, nil
 }
 
 func (h *gormInstance) Reload() error {
@@ -120,6 +139,24 @@ func Close() error {
 func CloseAll() error {
 	_ = ensureInit()
 	return reg.CloseAll()
+}
+
+func wrapBuilders(definitions map[string]Builder) map[string]registry.Builder[*gormResource] {
+	wrapped := make(map[string]registry.Builder[*gormResource], len(definitions))
+	for name, builder := range definitions {
+		wrapped[name] = wrapBuilder(builder)
+	}
+	return wrapped
+}
+
+func wrapBuilder(builder Builder) registry.Builder[*gormResource] {
+	return func(name string) (*gormResource, error) {
+		db, err := builder(name)
+		if err != nil {
+			return nil, err
+		}
+		return &gormResource{db: db}, nil
+	}
 }
 
 func buildDefinitions(root map[string]any) (map[string]Builder, string) {

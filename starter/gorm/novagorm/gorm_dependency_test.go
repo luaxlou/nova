@@ -219,7 +219,7 @@ func TestPackageHasNoDirectSQLOpenCall(t *testing.T) {
 
 func resetForTest() {
 	initialized = false
-	reg = registry.New[*gorm.DB]()
+	reg = registry.New[*gormResource]()
 	manualDefinitions = map[string]Builder{}
 	selectedInstanceName = ""
 }
