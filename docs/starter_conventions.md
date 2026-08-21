@@ -46,10 +46,11 @@
 | `starter/config/novaconfig` | `config.yaml` | 无固定业务 key | 负责读取 YAML 配置，并支持点号读取嵌套 key |
 | `starter/http/novagin` | `novaconfig` / 环境变量 | `http.port` | 端口优先级为 `OP_APP_PORT`、`http.port`、`PORT`、`8080` |
 | `starter/cache/novaredis` | `novaconfig` | `redis` | 支持单实例与 `redis.<name>` 多实例 |
+| `starter/gorm/novagorm` | `novaconfig` | `gorm` | 支持单实例与 `gorm.<name>` 多实例；MySQL 是 driver，不是独立 starter |
 | `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.<name>` 多实例 |
 | `starter/realtime/novawebsocket` | 代码默认值 | 无 | 默认使用宽松 Upgrader，生产环境建议应用层收紧 `CheckOrigin` |
 
-GORM 位于 [`orm/novagorm`](./orm/novagorm.md)，是 ORM 装配工具，不属于 `starter/*`。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
+GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
 
 ## 组合配置示例
 
@@ -58,7 +59,7 @@ GORM 位于 [`orm/novagorm`](./orm/novagorm.md)，是 ORM 装配工具，不属�
 http:
   port: 8080
 
-# orm/novagorm
+# starter/gorm/novagorm
 gorm:
   main:
     driver: mysql
@@ -99,6 +100,7 @@ aliyun:
 
 - [`novaconfig`](./starters/novaconfig.md)
 - [`novagin`](./starters/novagin.md)
+- [`novagorm`](./starters/novagorm.md)
 - [`novaredis`](./starters/novaredis.md)
 - [`novaoss`](./starters/novaoss.md)
 - [`novawebsocket`](./starters/novawebsocket.md)

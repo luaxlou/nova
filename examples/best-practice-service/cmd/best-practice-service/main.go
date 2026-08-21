@@ -5,7 +5,7 @@ import (
 
 	"github.com/luaxlou/nova/examples/best-practice-service/internal/user/data"
 	"github.com/luaxlou/nova/examples/best-practice-service/internal/user/http"
-	"github.com/luaxlou/nova/orm/novagorm"
+	"github.com/luaxlou/nova/starter/gorm/novagorm"
 	"github.com/luaxlou/nova/starter/http/novagin"
 )
 

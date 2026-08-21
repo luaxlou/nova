@@ -3,7 +3,7 @@ package data
 import (
 	"context"
 
-	"github.com/luaxlou/nova/orm/novagorm"
+	"github.com/luaxlou/nova/starter/gorm/novagorm"
 )
 
 func EmailExists(ctx context.Context, email string) (bool, error) {

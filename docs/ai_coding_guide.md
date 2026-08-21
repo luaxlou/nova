@@ -83,7 +83,7 @@ go vet ./...
 
 - `starter/config/novaconfig`
 - `starter/http/novagin`
-- `orm/novagorm`
+- `starter/gorm/novagorm`
 - `starter/cache/novaredis`
 - `starter/realtime/novawebsocket`
 - `examples/simple-app`

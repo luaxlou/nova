@@ -1,6 +1,6 @@
 # novagorm
 
-`orm/novagorm` 是 GORM 装配工具，不是 Nova Starter。它负责按配置创建一个或多个 `*gorm.DB`，并把具体数据库配置挂在所选 driver 下。
+`starter/gorm/novagorm` 是 GORM Starter。它负责按配置创建一个或多个 `*gorm.DB`，并把具体数据库配置挂在所选 driver 下。
 
 ## 多实例配置
 
@@ -37,7 +37,7 @@ gorm:
 ```go
 package main
 
-import "github.com/luaxlou/nova/orm/novagorm"
+import "github.com/luaxlou/nova/starter/gorm/novagorm"
 
 func main() {
 	db, err := novagorm.DB()
@@ -67,7 +67,7 @@ _, _ = mainDB, analyticsDB
 
 ## 约定
 
-- 包路径为 `github.com/luaxlou/nova/orm/novagorm`
+- 包路径为 `github.com/luaxlou/nova/starter/gorm/novagorm`
 - 配置顶层 key 为 `gorm`
 - 数据库类型由 `gorm.driver` 或 `gorm.<name>.driver` 选择
 - MySQL 配置挂在 `gorm.mysql` 或 `gorm.<name>.mysql` 下

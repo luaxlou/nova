@@ -17,7 +17,7 @@
 
 2. 建立初始化骨架
 - 在 `main.go` 中先接入 `novaconfig` 与 `novagin`
-- 按需声明 `orm/novagorm`、`novaredis`、`novawebsocket`
+- 按需声明 `starter/gorm/novagorm`、`novaredis`、`novawebsocket`
 
 3. 统一路由与依赖注入入口
 - 所有启动逻辑集中在单一入口（建议 `cmd/<app>/main.go`）

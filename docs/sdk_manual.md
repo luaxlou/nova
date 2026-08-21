@@ -53,7 +53,7 @@ app:
 http:
   port: 8080
 
-# orm/novagorm
+# starter/gorm/novagorm
 gorm:
   main:
     driver: mysql
@@ -66,6 +66,8 @@ gorm:
     driver: mysql
     mysql:
       dsn: analytics:password@tcp(localhost:3306)/analytics
+
+# starter/cache/novaredis
 redis:
   main:
     addr: localhost:6379
@@ -84,7 +86,7 @@ redis:
 
 ### 3.3 novagorm
 
-提供 GORM 动态装配能力。`novagorm` 位于 `orm/novagorm`，不是 starter。GORM 支持多实例；数据库类型由 `gorm.<name>.driver` 选择，使用 MySQL 时配置放在 `gorm.<name>.mysql` 下。有多个实例时必须使用 `Named(name)` 获取。
+提供 GORM 动态装配能力。`novagorm` 位于 `starter/gorm/novagorm`，是 GORM Starter。GORM 支持多实例；数据库类型由 `gorm.<name>.driver` 选择，使用 MySQL 时配置放在 `gorm.<name>.mysql` 下。有多个实例时必须使用 `Named(name)` 获取。
 
 - `Register(name string, builder Builder)`
 - `OpenMySQLFromSQLDB(db *sql.DB) (*gorm.DB, error)`

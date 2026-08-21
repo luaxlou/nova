@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/luaxlou/nova/orm/novagorm"
 	"github.com/luaxlou/nova/starter/cache/novaredis"
+	"github.com/luaxlou/nova/starter/gorm/novagorm"
 	"github.com/luaxlou/nova/starter/http/novagin"
 )
 

@@ -58,7 +58,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 - [`starter/cache/novaredis`](./starter/cache/novaredis)：Redis 客户端初始化；说明见 [`docs/starters/novaredis.md`](./docs/starters/novaredis.md)
 - [`starter/aliyun/novaoss`](./starter/aliyun/novaoss)：Alibaba Cloud OSS Bucket 初始化；说明见 [`docs/starters/novaoss.md`](./docs/starters/novaoss.md)
 - [`starter/realtime/novawebsocket`](./starter/realtime/novawebsocket)：WebSocket 适配；说明见 [`docs/starters/novawebsocket.md`](./docs/starters/novawebsocket.md)
-- [`orm/novagorm`](./orm/novagorm)：GORM 装配工具，不属于 starter；说明见 [`docs/orm/novagorm.md`](./docs/orm/novagorm.md)
+- [`starter/gorm/novagorm`](./starter/gorm/novagorm)：GORM Starter；说明见 [`docs/starters/novagorm.md`](./docs/starters/novagorm.md)
 - [`examples/`](./examples)：可运行示例集合
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
 - [`docs/starter_conventions.md`](./docs/starter_conventions.md)：Starter 统一约定
@@ -74,7 +74,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 http:
   port: 8080
 
-# orm/novagorm
+# starter/gorm/novagorm
 gorm:
   main:
     driver: mysql
@@ -103,7 +103,7 @@ aliyun:
 
 ## GORM / MySQL 约定
 
-MySQL 不再作为独立 Starter 对外提供，只是 [`orm/novagorm`](./orm/novagorm) 的一种 driver 选择。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver` 选择数据库类型，再把对应数据库配置放到 `mysql` 等 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
+MySQL 不再作为独立 Starter 对外提供，只是 [`starter/gorm/novagorm`](./starter/gorm/novagorm) 的一种 driver 选择。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver` 选择数据库类型，再把对应数据库配置放到 `mysql` 等 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
 
 ## Starter 专用说明
 
@@ -117,13 +117,10 @@ MySQL 不再作为独立 Starter 对外提供，只是 [`orm/novagorm`](./orm/no
 
 - [`novaconfig`](./docs/starters/novaconfig.md)
 - [`novagin`](./docs/starters/novagin.md)
+- [`novagorm`](./docs/starters/novagorm.md)
 - [`novaredis`](./docs/starters/novaredis.md)
 - [`novaoss`](./docs/starters/novaoss.md)
 - [`novawebsocket`](./docs/starters/novawebsocket.md)
-
-工具说明入口：
-
-- [`novagorm`](./docs/orm/novagorm.md)
 
 ## Alibaba Cloud OSS 约定
 
