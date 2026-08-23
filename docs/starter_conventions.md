@@ -48,6 +48,7 @@
 | `starter/cache/novaredis` | `novaconfig` | `redis` | 支持单实例与 `redis.<name>` 多实例 |
 | `starter/gorm/novagorm` | `novaconfig` | `gorm` | 支持单实例与 `gorm.<name>` 多实例；MySQL 是 driver，不是独立 starter |
 | `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.<name>` 多实例 |
+| `starter/ai/novaqwen` | `novaconfig` / 环境变量 | `ai.qwen` | 阿里云千问单例 Client 与 Chat Completions 调用 |
 | `starter/realtime/novawebsocket` | 代码默认值 | 无 | 默认使用宽松 Upgrader，生产环境建议应用层收紧 `CheckOrigin` |
 
 GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。应用侧禁用 ORM Magic，表列映射、时间字段、外键 ID 和更新列必须显式表达，不声明 GORM association；Schema 坚持 Model First，通过明确列出 Model 的 `AutoMigrate` 建立数据库结构，并在任何 DDL 前执行 Model 门禁。
@@ -103,4 +104,5 @@ aliyun:
 - [`novagorm`](./starters/novagorm.md)
 - [`novaredis`](./starters/novaredis.md)
 - [`novaoss`](./starters/novaoss.md)
+- [`novaqwen`](./starters/novaqwen.md)
 - [`novawebsocket`](./starters/novawebsocket.md)

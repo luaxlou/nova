@@ -57,6 +57,7 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 - [`starter/http/novagin`](./starter/http/novagin)：HTTP 服务启动适配（Gin）；说明见 [`docs/starters/novagin.md`](./docs/starters/novagin.md)
 - [`starter/cache/novaredis`](./starter/cache/novaredis)：Redis 客户端初始化；说明见 [`docs/starters/novaredis.md`](./docs/starters/novaredis.md)
 - [`starter/aliyun/novaoss`](./starter/aliyun/novaoss)：Alibaba Cloud OSS Bucket 初始化；说明见 [`docs/starters/novaoss.md`](./docs/starters/novaoss.md)
+- [`starter/ai/novaqwen`](./starter/ai/novaqwen)：Alibaba Cloud Qwen Client 与 Chat Completions；说明见 [`docs/starters/novaqwen.md`](./docs/starters/novaqwen.md)
 - [`starter/realtime/novawebsocket`](./starter/realtime/novawebsocket)：WebSocket 适配；说明见 [`docs/starters/novawebsocket.md`](./docs/starters/novawebsocket.md)
 - [`starter/gorm/novagorm`](./starter/gorm/novagorm)：GORM Starter；说明见 [`docs/starters/novagorm.md`](./docs/starters/novagorm.md)
 - [`examples/`](./examples)：可运行示例集合
@@ -122,6 +123,7 @@ Nova 项目禁用 ORM Magic：表列映射、时间字段、外键和更新列�
 - [`novagorm`](./docs/starters/novagorm.md)
 - [`novaredis`](./docs/starters/novaredis.md)
 - [`novaoss`](./docs/starters/novaoss.md)
+- [`novaqwen`](./docs/starters/novaqwen.md)
 - [`novawebsocket`](./docs/starters/novawebsocket.md)
 
 ## Alibaba Cloud OSS 约定
