@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -187,7 +186,7 @@ func Reload() error {
 	if err := reg.CloseAll(); err != nil {
 		return fmt.Errorf("reload ai.qwen config: close current client: %w", err)
 	}
-	if err := configureFromCurrentConfig("reloaded"); err != nil {
+	if err := configureFromCurrentConfig(); err != nil {
 		return fmt.Errorf("reload ai.qwen config: %w", err)
 	}
 	return nil
@@ -274,10 +273,10 @@ func ensureInit() error {
 	if initialized {
 		return nil
 	}
-	return configureFromCurrentConfig("initialized")
+	return configureFromCurrentConfig()
 }
 
-func configureFromCurrentConfig(action string) error {
+func configureFromCurrentConfig() error {
 	config, err := loadConfig()
 	if err != nil {
 		reg.Configure("", map[string]registry.Builder[*Client]{})
@@ -290,7 +289,6 @@ func configureFromCurrentConfig(action string) error {
 		},
 	})
 	initialized = true
-	log.Printf("Qwen Starter %s", action)
 	return nil
 }
 
