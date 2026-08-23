@@ -14,6 +14,7 @@ import (
 	"github.com/luaxlou/nova/starter/config/novaconfig"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
 )
 
@@ -189,6 +190,16 @@ func (g *autoMigrateGuard) AutoMigrate(models ...any) error {
 	}
 
 	return g.Migrator.AutoMigrate(models...)
+}
+
+// BuildIndexOptions preserves the extended migrator contract used by GORM
+// while AutoMigrate is routed through the Model First guard.
+func (g *autoMigrateGuard) BuildIndexOptions(options []schema.IndexOption, statement *gorm.Statement) []interface{} {
+	builder, ok := g.Migrator.(migrator.BuildIndexOptionsInterface)
+	if !ok {
+		return nil
+	}
+	return builder.BuildIndexOptions(options, statement)
 }
 
 func validateAutoMigrateModel(db *gorm.DB, model any) error {
