@@ -60,6 +60,7 @@ AI Agent 在新项目或存量项目中引入 Nova 前，必须先检查目标�
 - Data 属于领域能力：`data/query.go`、`data/write.go`、`data/tx.go` 表达领域需要的数据能力，业务层不直接暴露 GORM、SQL、Redis 细节。
 - HTTP 只是 adapter：request/response、status code、Gin context 留在 `http/` 包内，业务模型保持协议无关。
 - Interface follows variation：只有真实变化点出现时才引入接口，并由使用方定义最小能力。
+- AI 能力属于业务：`novaqwen` 只负责千问配置、HTTP Client 生命周期和 Chat Completions 调用；Prompt、结果解释、校验与降级属于调用方业务域，不预先创建泛化 AI 抽象。验证必须包含真实模型与代表性真实业务输入的运行证据。
 - Reality-Driven Development：让真实运行结果驱动开发。优先运行系统、走真实用户路径并观察日志、指标和真实数据；没有新增运行证据的测试或二次审查不能单独证明可靠性。长期只保留极少量高价值冒烟测试。
 
 ## AI 默认阅读顺序
@@ -107,6 +108,8 @@ go vet ./...
 - `starter/http/novagin`
 - `starter/gorm/novagorm`
 - `starter/cache/novaredis`
+- `starter/aliyun/novaoss`
+- `starter/ai/novaqwen`
 - `starter/realtime/novawebsocket`
 - `examples/simple-app`
 - `examples/best-practice-service`

@@ -31,6 +31,8 @@ novaconfig
 novagin
 novagorm
 novaredis
+novaoss
+novaqwen
 novawebsocket
 ```
 
@@ -48,6 +50,10 @@ Application
     │           └── MySQL driver
     ├── novaredis
     │       └── Redis
+    ├── novaoss
+    │       └── Alibaba Cloud OSS
+    ├── novaqwen
+    │       └── Alibaba Cloud Qwen Chat Completions
     └── novawebsocket
             └── WebSocket
 ```
@@ -675,6 +681,51 @@ integration/
 业务看到的是能力语义，例如 `mail.SendVerification(...)`、`eventbus.Publish(...)`。无状态 integration 直接通过 function 表达，拥有独立状态、生命周期、多个实例或运行时选择时，再自然形成对象。
 
 多个领域共同使用，并且具有明确业务意义的概念放在 `shared/`，例如 money、identity、paging。纯工具放在 `tool/`，例如 crypto、id、clock、text。判断标准只有一个：它是不是业务语言的一部分。
+
+## AI 能力与 novaqwen
+
+`starter/ai/novaqwen` 是阿里云千问的基础设施 Starter。它从 `novaconfig` 读取 `ai.qwen` 配置，管理 HTTP Client 的创建、重载和关闭，并提供非流式 Chat Completions 调用。完整配置与 API 见 [`docs/starters/novaqwen.md`](./starters/novaqwen.md)。
+
+`novaqwen` 只回答“如何稳定调用千问”，不定义系统正在完成什么 AI 业务。Prompt、业务输入输出、结果解释、业务校验、失败降级和人工接管策略属于调用它的真实业务域。
+
+例如文档摘要属于 document 领域：
+
+```text
+document.Summarize
+    ↓
+构造摘要所需的 Prompt 与真实业务输入
+    ↓
+novaqwen.Chat
+    ↓
+校验并解释模型返回结果
+    ↓
+形成 document 领域结果
+```
+
+```go
+func Summarize(ctx context.Context, content string) (Summary, error) {
+    response, err := novaqwen.Chat(ctx, novaqwen.Request{
+        Messages: []novaqwen.Message{
+            {Role: "system", Content: summaryPrompt},
+            {Role: "user", Content: content},
+        },
+    })
+    if err != nil {
+        return Summary{}, err
+    }
+
+    content, err := response.FirstContent()
+    if err != nil {
+        return Summary{}, err
+    }
+
+    return parseSummary(content)
+}
+```
+
+不要仅仅因为使用了大模型就创建泛化的 `AIService`、`LLMManager` 或全量 Provider 接口。业务首先直接使用 `novaqwen` 提供的基础设施能力；只有系统真实出现多模型、多供应商或运行时切换需求时，才由使用方定义最小变化接口。
+
+AI 能力同样遵循 RDD。验证时使用具有代表性的真实业务输入调用真实模型，观察实际响应、耗时、token 用量、错误和业务数据结果，并验证失败与降级路径。Mock 返回、Prompt 审查、单元测试或 AI 对代码的二次推理，都不能替代真实模型运行证据。`novaqwen` 本身保持安静，不擅自记录可能包含敏感业务内容的 Prompt 或响应；应用在所属业务边界内决定可观测内容，并对敏感信息脱敏。
 
 ## Interface 表达真实变化点
 
