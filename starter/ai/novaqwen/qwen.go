@@ -11,8 +11,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -305,46 +303,19 @@ type qwenConfig struct {
 
 func loadConfig() (qwenConfig, error) {
 	config := qwenConfig{
-		Endpoint: firstNonEmpty(
-			novaconfig.GetString("ai.qwen.endpoint"),
-			os.Getenv("QWEN_API_BASE"),
-			os.Getenv("QWEN_ENDPOINT"),
-			os.Getenv("DASHSCOPE_API_BASE"),
-			os.Getenv("DASHSCOPE_BASE_URL"),
-			os.Getenv("DASHSCOPE_ENDPOINT"),
-			defaultEndpoint,
-		),
-		APIKey: firstNonEmpty(
-			novaconfig.GetString("ai.qwen.api_key"),
-			os.Getenv("QWEN_API_KEY"),
-			os.Getenv("DASHSCOPE_API_KEY"),
-		),
-		Model: firstNonEmpty(
-			novaconfig.GetString("ai.qwen.model"),
-			os.Getenv("QWEN_MODEL"),
-			os.Getenv("DASHSCOPE_MODEL"),
-			defaultModel,
-		),
-		Timeout: defaultTimeout,
+		Endpoint: firstNonEmpty(novaconfig.GetString("ai.qwen.endpoint"), defaultEndpoint),
+		APIKey:   strings.TrimSpace(novaconfig.GetString("ai.qwen.api_key")),
+		Model:    firstNonEmpty(novaconfig.GetString("ai.qwen.model"), defaultModel),
+		Timeout:  defaultTimeout,
 	}
 
 	timeout := novaconfig.GetInt("ai.qwen.timeout_seconds")
-	if timeout <= 0 {
-		rawTimeout := firstNonEmpty(os.Getenv("QWEN_TIMEOUT_SECONDS"), os.Getenv("DASHSCOPE_TIMEOUT_SECONDS"))
-		if rawTimeout != "" {
-			parsed, err := strconv.Atoi(rawTimeout)
-			if err != nil || parsed <= 0 {
-				return qwenConfig{}, fmt.Errorf("ai.qwen timeout must be a positive integer")
-			}
-			timeout = parsed
-		}
-	}
 	if timeout > 0 {
 		config.Timeout = time.Duration(timeout) * time.Second
 	}
 
 	if config.APIKey == "" {
-		return qwenConfig{}, fmt.Errorf("ai.qwen api_key is required (or set QWEN_API_KEY/DASHSCOPE_API_KEY)")
+		return qwenConfig{}, fmt.Errorf("ai.qwen api_key is required")
 	}
 	endpoint, err := url.ParseRequestURI(config.Endpoint)
 	if err != nil || endpoint.Scheme == "" || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {

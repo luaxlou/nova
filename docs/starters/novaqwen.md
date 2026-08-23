@@ -13,14 +13,7 @@ ai:
     timeout_seconds: 15
 ```
 
-`endpoint`、`model` 和 `timeout_seconds` 均有默认值，`api_key` 必须由运行时配置或环境变量提供。配置值优先于环境变量。
-
-环境变量兼容：
-
-- 凭据：`QWEN_API_KEY`、`DASHSCOPE_API_KEY`
-- 地址：`QWEN_API_BASE`、`QWEN_ENDPOINT`、`DASHSCOPE_API_BASE`、`DASHSCOPE_BASE_URL`、`DASHSCOPE_ENDPOINT`
-- 模型：`QWEN_MODEL`、`DASHSCOPE_MODEL`
-- 超时秒数：`QWEN_TIMEOUT_SECONDS`、`DASHSCOPE_TIMEOUT_SECONDS`
+`endpoint`、`model` 和 `timeout_seconds` 均有代码默认值，`api_key` 必须通过 `novaconfig` 的 `ai.qwen.api_key` 提供。Starter 不直接读取环境变量。
 
 ## 使用
 
