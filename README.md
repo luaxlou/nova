@@ -105,6 +105,8 @@ aliyun:
 
 MySQL 不再作为独立 Starter 对外提供，只是 [`starter/gorm/novagorm`](./starter/gorm/novagorm) 的一种 driver 选择。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver` 选择数据库类型，再把对应数据库配置放到 `mysql` 等 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
 
+Nova 项目禁用 ORM Magic：表列映射、时间字段、外键和更新列都必须显式表达；Schema 坚持 Model First，保留基于 Model 的显式 `AutoMigrate`，并由 `novagorm` 在任何 DDL 前执行强制 Model 门禁。完整约束见 [`novagorm` 说明](./docs/starters/novagorm.md#禁用-orm-magic)。
+
 ## Starter 专用说明
 
 每个 starter 都应有一份专用说明，用来回答三个问题：

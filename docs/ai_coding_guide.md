@@ -46,6 +46,7 @@
 - 状态决定实例：只有真实拥有状态、生命周期或多个实例的概念才建 struct。
 - 能力直接表达：无状态能力优先使用 package function。
 - Model First：数据库结构从 `data/model.go` 的 GORM model 出发，model 是当前数据结构的事实来源。
+- 禁用 ORM Magic：显式声明表名、列名、时间字段、更新列和外键 ID，不声明 GORM association，禁止 hook、`gorm.Model` 和 `gorm.DeletedAt`；保留基于 Model 的显式 `AutoMigrate`，由 `novagorm` 在任何 DDL 前执行 Model 门禁，不维护重复的建表 SQL。
 - Data 属于领域能力：`data/query.go`、`data/write.go`、`data/tx.go` 表达领域需要的数据能力，业务层不直接暴露 GORM、SQL、Redis 细节。
 - HTTP 只是 adapter：request/response、status code、Gin context 留在 `http/` 包内，业务模型保持协议无关。
 - Interface follows variation：只有真实变化点出现时才引入接口，并由使用方定义最小能力。

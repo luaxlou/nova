@@ -2,8 +2,10 @@ package novagorm
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -12,9 +14,12 @@ import (
 	"github.com/luaxlou/nova/starter/config/novaconfig"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type Builder = registry.Builder[*gorm.DB]
+
+var ErrORMMagic = errors.New("novagorm: ORM magic blocked")
 
 type gormResource struct {
 	db *gorm.DB
@@ -155,8 +160,133 @@ func wrapBuilder(builder Builder) registry.Builder[*gormResource] {
 		if err != nil {
 			return nil, err
 		}
+		installAutoMigrateGuard(db)
 		return &gormResource{db: db}, nil
 	}
+}
+
+type autoMigrateGuardDialector struct {
+	gorm.Dialector
+}
+
+func (d autoMigrateGuardDialector) Migrator(db *gorm.DB) gorm.Migrator {
+	return &autoMigrateGuard{
+		Migrator: d.Dialector.Migrator(db),
+		db:       db,
+	}
+}
+
+type autoMigrateGuard struct {
+	gorm.Migrator
+	db *gorm.DB
+}
+
+func (g *autoMigrateGuard) AutoMigrate(models ...any) error {
+	for _, model := range models {
+		if err := validateAutoMigrateModel(g.db, model); err != nil {
+			return err
+		}
+	}
+
+	return g.Migrator.AutoMigrate(models...)
+}
+
+func validateAutoMigrateModel(db *gorm.DB, model any) error {
+	statement := &gorm.Statement{DB: db}
+	if err := statement.Parse(model); err != nil {
+		return err
+	}
+
+	modelType := statement.Schema.ModelType
+	modelName := statement.Schema.Name
+	modelPointer := reflect.New(modelType).Interface()
+	if _, ok := modelPointer.(schema.Tabler); !ok {
+		return ormMagicError(modelName, "TableName() is required")
+	}
+
+	if embedsGormModel(modelType) {
+		return ormMagicError(modelName, "embedded gorm.Model is not allowed")
+	}
+
+	deletedAtType := reflect.TypeOf(gorm.DeletedAt{})
+	for _, field := range statement.Schema.Fields {
+		if field.IndirectFieldType == deletedAtType {
+			return ormMagicError(modelName, fmt.Sprintf("field %s uses gorm.DeletedAt", field.Name))
+		}
+		if field.AutoCreateTime != 0 {
+			return ormMagicError(modelName, fmt.Sprintf("field %s enables autoCreateTime", field.Name))
+		}
+		if field.AutoUpdateTime != 0 {
+			return ormMagicError(modelName, fmt.Sprintf("field %s enables autoUpdateTime", field.Name))
+		}
+		if field.DBName != "" && !field.IgnoreMigration && field.TagSettings["COLUMN"] == "" {
+			return ormMagicError(modelName, fmt.Sprintf("field %s requires an explicit column tag", field.Name))
+		}
+	}
+
+	if hook := modelLifecycleHook(statement.Schema); hook != "" {
+		return ormMagicError(modelName, fmt.Sprintf("lifecycle hook %s is not allowed", hook))
+	}
+
+	for name := range statement.Schema.Relationships.Relations {
+		return ormMagicError(modelName, fmt.Sprintf("association %s is not allowed", name))
+	}
+
+	return nil
+}
+
+func embedsGormModel(modelType reflect.Type) bool {
+	gormModelType := reflect.TypeOf(gorm.Model{})
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i)
+		fieldType := field.Type
+		for fieldType.Kind() == reflect.Pointer {
+			fieldType = fieldType.Elem()
+		}
+		if field.Anonymous && fieldType == gormModelType {
+			return true
+		}
+	}
+	return false
+}
+
+func modelLifecycleHook(modelSchema *schema.Schema) string {
+	switch {
+	case modelSchema.BeforeCreate:
+		return "BeforeCreate"
+	case modelSchema.AfterCreate:
+		return "AfterCreate"
+	case modelSchema.BeforeUpdate:
+		return "BeforeUpdate"
+	case modelSchema.AfterUpdate:
+		return "AfterUpdate"
+	case modelSchema.BeforeSave:
+		return "BeforeSave"
+	case modelSchema.AfterSave:
+		return "AfterSave"
+	case modelSchema.BeforeDelete:
+		return "BeforeDelete"
+	case modelSchema.AfterDelete:
+		return "AfterDelete"
+	case modelSchema.AfterFind:
+		return "AfterFind"
+	default:
+		return ""
+	}
+}
+
+func ormMagicError(modelName, reason string) error {
+	return fmt.Errorf("%w for model %s: %s", ErrORMMagic, modelName, reason)
+}
+
+func installAutoMigrateGuard(db *gorm.DB) {
+	if db == nil || db.Config == nil || db.Dialector == nil {
+		return
+	}
+	if _, guarded := db.Dialector.(autoMigrateGuardDialector); guarded {
+		return
+	}
+	db.Dialector = autoMigrateGuardDialector{Dialector: db.Dialector}
 }
 
 func buildDefinitions(root map[string]any) (map[string]Builder, string) {
@@ -269,6 +399,7 @@ func OpenMySQLFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open gorm from sql db: %w", err)
 	}
+	installAutoMigrateGuard(db)
 	return db, nil
 }
 

@@ -12,6 +12,8 @@
 
 > Model 定义数据。
 
+> 禁用 ORM Magic。
+
 > 技术复杂度停留在它真正所属的位置。
 
 最终目标不是让代码看起来“有架构”，而是让代码本身就是架构。
@@ -369,19 +371,23 @@ Nova 的数据库工程采用 Model First。所有数据库设计都首先从 Mo
 
 ```go
 type UserModel struct {
-    ID string `gorm:"primaryKey;size:32"`
+    ID string `gorm:"column:id;primaryKey;size:32"`
 
-    Email string `gorm:"size:255;uniqueIndex;not null"`
-    Name  string `gorm:"size:100;not null"`
+    Email string `gorm:"column:email;size:255;uniqueIndex;not null"`
+    Name  string `gorm:"column:name;size:100;not null"`
 
-    Status string `gorm:"size:32;index;not null"`
+    Status string `gorm:"column:status;size:32;index;not null"`
 
-    CreatedAt time.Time
-    UpdatedAt time.Time
+    CreatedAt time.Time `gorm:"column:created_at;autoCreateTime:false"`
+    UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime:false"`
+}
+
+func (UserModel) TableName() string {
+    return "users"
 }
 ```
 
-这个 Model 同时表达数据结构、字段类型、长度、主键、索引、唯一约束、关联和数据库约束。因此数据库设计的起点始终是 Model。
+这个 Model 同时表达数据结构、字段类型、长度、主键、索引和唯一约束。因此数据库设计的起点始终是 Model。跨表关系通过显式外键字段和 data capability 表达，不在 Model 中声明 GORM association。
 
 ```text
 Model
@@ -417,7 +423,7 @@ func initModels() error {
 }
 ```
 
-真正重要的不是 `AutoMigrate` 本身，而是数据库结构来源等于当前 Model。
+`AutoMigrate` 是对 Model First 的显式执行，不属于这里禁止的 ORM Magic。Schema 只在 Model 中定义，不再维护一份重复的建表 SQL；应用通过明确列出的 Model 执行 `AutoMigrate`，数据库结构来源始终等于当前 Model。
 
 数据结构演进仍然从 Model 开始：
 
@@ -433,9 +439,70 @@ func initModels() error {
 
 有些变化不仅仅是结构变化，例如历史数据转换、字段语义变化、数据合并、数据拆分、大规模数据重算。这种情况本质上是数据维护任务，可以编写一次性程序放在 `cmd/maintenance/...`，长期的数据结构定义仍然回归 `data/model.go`。
 
+## 禁用 ORM Magic
+
+Nova 把 GORM 作为显式的数据映射和查询工具，不允许它隐式接管命名、字段值、关联写入或业务生命周期。所谓 ORM Magic，是仅凭命名约定、特殊字段、hook 或隐式级联就改变 SQL 或数据状态，而调用点无法直接看出真实行为。
+
+必须遵守以下约束：
+
+- 显式声明表名与列名：Model 实现 `TableName()`，持久化字段使用 `gorm:"column:..."`，不依赖复数表名、蛇形列名等命名推断。
+- 显式维护时间字段：写入参数明确设置 `CreatedAt`、`UpdatedAt`，并用 `autoCreateTime:false`、`autoUpdateTime:false` 禁用 GORM 自动时间戳。
+- 禁止隐式软删除：不使用 `gorm.DeletedAt` 的默认 scope；删除状态与查询条件由 data capability 显式表达。
+- 禁止 model lifecycle hook 承载业务：不使用 `BeforeCreate`、`BeforeSave`、`AfterFind` 等 hook 改写业务数据或触发外部副作用。
+- 禁止 GORM association：Model 只保留 `UserID`、`OrderID` 等显式外键字段，不声明 `User UserModel`、`Orders []OrderModel` 等关联字段；关联查询、写入和事务边界由 data capability 明确表达。
+- 更新必须显式：避免语义含混的 `Save`；使用带明确 `Where` 的 `Update`/`Updates`，并通过 `Select` 或字段 map 明确要修改的列。
+
+### AutoMigrate 门禁
+
+`novagorm` 会包装 GORM Migrator。应用调用 `db.AutoMigrate(models...)` 时，Starter 先检查本次传入的全部 Model；任意 Model 不符合约束就返回 `novagorm.ErrORMMagic`，并且不会执行任何 DDL。全部通过后，才委托给 GORM 原生 `AutoMigrate`。
+
+门禁拒绝以下 Model：
+
+- 未实现 `TableName() string`，依赖 GORM 推断表名。
+- 任一持久化字段未声明 `gorm:"column:..."`；使用 `gorm:"-"` 排除的非持久化字段不受此限制。
+- 存在未显式关闭的 `autoCreateTime` 或 `autoUpdateTime`，包括未加禁用 tag 的 `CreatedAt`、`UpdatedAt`。
+- 嵌入 `gorm.Model` 或使用 `gorm.DeletedAt`。
+- 定义 `BeforeCreate`、`AfterCreate`、`BeforeUpdate`、`AfterUpdate`、`BeforeSave`、`AfterSave`、`BeforeDelete`、`AfterDelete`、`AfterFind` 等 lifecycle hook。
+- 声明 GORM association 字段。
+
+启动代码可以统一识别门禁错误：
+
+```go
+if err := db.AutoMigrate(&userdata.UserModel{}); err != nil {
+    if errors.Is(err, novagorm.ErrORMMagic) {
+        return fmt.Errorf("invalid GORM model: %w", err)
+    }
+    return err
+}
+```
+
+门禁仅检查本次传给 `AutoMigrate` 的 Model，因此每个持久化 Model 都必须明确列入启动迁移清单。门禁只约束 Model 层；运行期的 `Save`、`FullSaveAssociations` 等调用不经过 `AutoMigrate`，仍由上述编码规范禁止。直接使用 `gorm.Open` 创建的连接也不属于 Nova 管理范围；通过 `novagorm.DB()`、`novagorm.Named(...).DB()`、`Register` 或 `OpenMySQLFromSQLDB` 获得的连接会自动安装门禁。
+
+例如，更新时间和更新列都应在调用点可见：
+
+```go
+func UpdateName(ctx context.Context, id, name string, now time.Time) error {
+    db, err := novagorm.DB()
+    if err != nil {
+        return err
+    }
+
+    return db.WithContext(ctx).
+        Model(&UserModel{}).
+        Where("id = ?", id).
+        Updates(map[string]any{
+            "name":       name,
+            "updated_at": now,
+        }).
+        Error
+}
+```
+
+判断标准很简单：只看 data capability 的代码，就应能知道会访问哪些表、修改哪些列、是否写入关联数据，以及事务边界在哪里。
+
 ## Model First 对 AI Coding 的意义
 
-当 AI 想理解用户表时，只需要读取 `user/data/model.go` 即可理解字段、类型、索引、关系和约束。当 AI 修改业务数据结构时，也可以从业务需求到 Model，再到 Data Capability，直接完成修改。
+当 AI 想理解用户表时，只需要读取 `user/data/model.go` 即可理解字段、类型、索引、约束和外键标识。当 AI 修改业务数据结构时，也可以从业务需求到 Model，再到 Data Capability，直接完成修改。
 
 因此当前代码就是当前系统，这能显著降低 AI 理解系统所需要的上下文。
 

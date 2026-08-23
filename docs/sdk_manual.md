@@ -86,16 +86,19 @@ redis:
 
 ### 3.3 novagorm
 
-提供 GORM 动态装配能力。`novagorm` 位于 `starter/gorm/novagorm`，是 GORM Starter。GORM 支持多实例；数据库类型由 `gorm.<name>.driver` 选择，使用 MySQL 时配置放在 `gorm.<name>.mysql` 下。有多个实例时必须使用 `Named(name)` 获取。
+提供 GORM 动态装配能力。`novagorm` 位于 `starter/gorm/novagorm`，是 GORM Starter。GORM 支持多实例；数据库类型由 `gorm.<name>.driver` 选择，使用 MySQL 时配置放在 `gorm.<name>.mysql` 下。有多个实例时必须使用 `Named(name)` 获取。应用侧禁用 ORM Magic；表列映射、时间字段、外键 ID 和更新列必须显式表达，不声明 GORM association。Schema 坚持 Model First，保留基于 Model 的显式 `AutoMigrate`，不维护重复的建表 SQL。详细约束见 [`novagorm` Starter 说明](./starters/novagorm.md#禁用-orm-magic)。
 
 - `Register(name string, builder Builder)`
 - `OpenMySQLFromSQLDB(db *sql.DB) (*gorm.DB, error)`
+- `ErrORMMagic`
 - `Get() *gormInstance`
 - `Named(name string) *gormInstance`
 - `DB() (*gorm.DB, error)`
 - `Reload()`
 - `Close() error`
 - `CloseAll() error`
+
+所有由 `novagorm` 管理的连接都会在 `AutoMigrate` 前校验 Model。隐式表名/列名、自动时间戳、`gorm.Model`、`gorm.DeletedAt`、lifecycle hook 或 association 会返回 `ErrORMMagic`，且不会执行 DDL；完整规则与边界见 [`novagorm` Starter 说明](./starters/novagorm.md#禁用-orm-magic)。
 
 ### 3.4 novaredis
 

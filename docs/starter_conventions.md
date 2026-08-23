@@ -50,7 +50,7 @@
 | `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.<name>` 多实例 |
 | `starter/realtime/novawebsocket` | 代码默认值 | 无 | 默认使用宽松 Upgrader，生产环境建议应用层收紧 `CheckOrigin` |
 
-GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
+GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。应用侧禁用 ORM Magic，表列映射、时间字段、外键 ID 和更新列必须显式表达，不声明 GORM association；Schema 坚持 Model First，通过明确列出 Model 的 `AutoMigrate` 建立数据库结构，并在任何 DDL 前执行 Model 门禁。
 
 ## 组合配置示例
 
