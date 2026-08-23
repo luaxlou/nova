@@ -40,10 +40,11 @@ var (
 // Client owns the HTTP transport and runtime configuration for Qwen.
 // Applications obtain it through Open rather than constructing it directly.
 type Client struct {
-	apiKey     string
-	endpoint   string
-	model      string
-	httpClient *http.Client
+	apiKey         string
+	endpoint       string
+	model          string
+	enableThinking bool
+	httpClient     *http.Client
 }
 
 // Message is one text message in a Qwen conversation.
@@ -129,10 +130,11 @@ func (c *Client) Chat(ctx context.Context, request Request) (Response, error) {
 	}
 
 	body, err := json.Marshal(struct {
-		Model    string    `json:"model"`
-		Messages []Message `json:"messages"`
-		Stream   bool      `json:"stream"`
-	}{Model: c.model, Messages: request.Messages, Stream: false})
+		Model          string    `json:"model"`
+		Messages       []Message `json:"messages"`
+		Stream         bool      `json:"stream"`
+		EnableThinking bool      `json:"enable_thinking"`
+	}{Model: c.model, Messages: request.Messages, Stream: false, EnableThinking: c.enableThinking})
 	if err != nil {
 		return Response{}, fmt.Errorf("novaqwen: encode request: %w", err)
 	}
@@ -293,18 +295,20 @@ func configureFromCurrentConfig() error {
 }
 
 type qwenConfig struct {
-	Endpoint string
-	APIKey   string
-	Model    string
-	Timeout  time.Duration
+	Endpoint       string
+	APIKey         string
+	Model          string
+	EnableThinking bool
+	Timeout        time.Duration
 }
 
 func loadConfig() (qwenConfig, error) {
 	config := qwenConfig{
-		Endpoint: firstNonEmpty(novaconfig.GetString("ai.qwen.endpoint"), defaultEndpoint),
-		APIKey:   strings.TrimSpace(novaconfig.GetString("ai.qwen.api_key")),
-		Model:    firstNonEmpty(novaconfig.GetString("ai.qwen.model"), defaultModel),
-		Timeout:  defaultTimeout,
+		Endpoint:       firstNonEmpty(novaconfig.GetString("ai.qwen.endpoint"), defaultEndpoint),
+		APIKey:         strings.TrimSpace(novaconfig.GetString("ai.qwen.api_key")),
+		Model:          firstNonEmpty(novaconfig.GetString("ai.qwen.model"), defaultModel),
+		EnableThinking: novaconfig.GetBool("ai.qwen.enable_thinking"),
+		Timeout:        defaultTimeout,
 	}
 
 	timeout := novaconfig.GetInt("ai.qwen.timeout_seconds")
@@ -328,9 +332,10 @@ func newClient(config qwenConfig) (*Client, error) {
 		return nil, fmt.Errorf("novaqwen: default HTTP transport is unsupported")
 	}
 	return &Client{
-		apiKey:   config.APIKey,
-		endpoint: config.Endpoint,
-		model:    config.Model,
+		apiKey:         config.APIKey,
+		endpoint:       config.Endpoint,
+		model:          config.Model,
+		enableThinking: config.EnableThinking,
 		httpClient: &http.Client{
 			Transport: transport.Clone(),
 			Timeout:   config.Timeout,
