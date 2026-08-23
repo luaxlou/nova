@@ -2,7 +2,16 @@
 
 本文档用于让 AI Agent 在 `nova` 仓库内快速建立上下文，并围绕统一 starter 设计哲学稳定交付。
 
-开始具体编码前，必须同时阅读 `docs/nova_engineering_best_practices.md`，并把其中的业务域、动作文件、状态对象、Model First、data capability、adapter 边界作为默认工程判断。
+开始具体编码前，必须同时阅读 `docs/nova_engineering_best_practices.md`，并把其中的全部约束作为工程判断。Nova 不是可以脱离其工程方式单独接入的工具集合：既然引入 Nova，就必须完整遵循 Nova 工程最佳实践；如果无法或不愿完整遵循，就不要引入 Nova。
+
+## 引入门禁
+
+AI Agent 在新项目或存量项目中引入 Nova 前，必须先检查目标工程是否能够完整遵循 Nova 工程最佳实践：
+
+- 不允许只接入 Nova Starter，同时保留与最佳实践冲突的分层、数据模型、隐式 ORM 行为或验证方式。
+- 发现冲突时，必须明确列出冲突，并把修正纳入同一次引入计划。
+- 如果关键冲突无法在当前范围内解决，必须停止引入 Nova，说明阻塞原因和所需条件，不能交付一个部分遵循的 Nova 项目。
+- 只有完成符合性检查并确认能够完整遵循后，才可以开始接入。
 
 ## 一句话定位
 
@@ -35,9 +44,10 @@
    - 新项目：`docs/quickstart_new_project.md`
    - 存量项目：`docs/quickstart_existing_project.md`
 2. 阅读工程最佳实践：`docs/nova_engineering_best_practices.md`。
-3. 按业务域、业务动作、状态、数据模型、data capability、adapter 的顺序理解目标代码。
-4. 按固定结构组织输出内容：实施计划、改动文件清单、收益说明、验证结果。
-5. 执行统一验证命令并回报结果。
+3. 执行最佳实践符合性检查；存在冲突时将修正纳入计划，关键冲突无法解决时停止引入。
+4. 按业务域、业务动作、状态、数据模型、data capability、adapter 的顺序理解目标代码。
+5. 按固定结构组织输出内容：符合性检查、实施计划、改动文件清单、收益说明、现实验证结果。
+6. 运行真实系统，走受影响的真实用户路径，并回报日志、指标或数据证据；测试和静态检查只作为辅助验证。
 
 ## 工程最佳实践约束
 
@@ -50,6 +60,7 @@
 - Data 属于领域能力：`data/query.go`、`data/write.go`、`data/tx.go` 表达领域需要的数据能力，业务层不直接暴露 GORM、SQL、Redis 细节。
 - HTTP 只是 adapter：request/response、status code、Gin context 留在 `http/` 包内，业务模型保持协议无关。
 - Interface follows variation：只有真实变化点出现时才引入接口，并由使用方定义最小能力。
+- Reality-Driven Development：让真实运行结果驱动开发。优先运行系统、走真实用户路径并观察日志、指标和真实数据；没有新增运行证据的测试或二次审查不能单独证明可靠性。长期只保留极少量高价值冒烟测试。
 
 ## AI 默认阅读顺序
 
@@ -73,7 +84,17 @@ Nova Starter
 
 例如修改订单取消规则，优先读取 `internal/order/cancel.go`、`internal/order/order.go`、`internal/order/policy.go`；如果涉及数据，再读取 `internal/order/data/model.go` 和 `internal/order/data/query.go`。
 
-## 统一验证命令
+## 现实驱动验证
+
+验证首先来自真实运行：
+
+1. 启动受影响的真实服务及其依赖。
+2. 执行受影响的真实用户路径。
+3. 检查响应、日志、指标和持久化数据。
+4. 发现问题后修正实现，再次运行同一路径确认结果。
+5. 回报运行方式、用户路径、观察结果和关键证据。
+
+以下命令是辅助检查，不是完成验证的充分条件：
 
 ```bash
 go test ./...

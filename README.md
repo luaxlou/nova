@@ -29,12 +29,14 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 请基于 nova 初始化一个新服务。
 请先阅读：https://github.com/luaxlou/nova/blob/main/docs/ai_coding_guide.md
 并阅读 Nova 工程最佳实践：https://github.com/luaxlou/nova/blob/main/docs/nova_engineering_best_practices.md
+引入门禁：既然选择引入 nova，就必须完整遵循 Nova 工程最佳实践，不允许只接入 starter 而保留与最佳实践冲突的工程方式。如果无法或不愿完整遵循，请不要引入 nova。
 目标：基于 nova 建立统一、可组合的应用接入基线，并快速落地最小可运行服务。
 重点收益：通过 nova 的稳定约定、可组合能力和低心智负担，提升项目可维护性与团队交付效率。
 工程要求：按业务域组织代码；业务动作使用 package function 直接表达；有状态对象使用 struct；数据设计采用 Model First；HTTP 仅作为 adapter。
 需解决问题：如何让项目在引入后持续享受 nova 设计哲学带来的收益，而不是一次性接入。
-输出要求：给出实施计划、文件改动清单、收益说明与验证结果。
-完成后执行并反馈：go test ./... && go vet ./...
+实施前检查：识别现有设计与 Nova 工程最佳实践的冲突；能够解决时把修正纳入实施计划，无法解决时停止引入并说明原因。
+输出要求：给出最佳实践符合性检查、实施计划、文件改动清单、收益说明与现实验证结果。
+完成后运行真实系统、走受影响的真实用户路径并反馈日志、指标或数据证据；go test ./... 与 go vet ./... 仅作为辅助检查。
 ```
 
 ### 模板 2：现有项目引入 nova
@@ -43,12 +45,14 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 请在现有项目中引入 nova starter。
 请先阅读：https://github.com/luaxlou/nova/blob/main/docs/ai_coding_guide.md
 并阅读 Nova 工程最佳实践：https://github.com/luaxlou/nova/blob/main/docs/nova_engineering_best_practices.md
+引入门禁：既然选择引入 nova，就必须完整遵循 Nova 工程最佳实践，不允许只接入 starter 而保留与最佳实践冲突的工程方式。如果无法或不愿完整遵循，请不要引入 nova。
 目标：建立 nova 的统一接入范式，减少重复样板并提升长期可维护性。
 重点收益：让项目获得边界清晰、可组合复用、低心智负担和稳定约定。
 工程要求：识别现有业务域、业务动作、数据模型与 adapter 边界；优先让业务代码直接表达业务；数据库改动从 Model 开始。
 需解决问题：如何把接入过程沉淀为可持续演进的工程基线。
-输出要求：给出实施步骤、受影响文件清单、收益说明与验证结果。
-完成后执行并反馈：go test ./... && go vet ./...
+实施前检查：识别现有设计与 Nova 工程最佳实践的冲突；能够解决时把修正纳入实施计划，无法解决时停止引入并说明原因。
+输出要求：给出最佳实践符合性检查、实施步骤、受影响文件清单、收益说明与现实验证结果。
+完成后运行真实系统、走受影响的真实用户路径并反馈日志、指标或数据证据；go test ./... 与 go vet ./... 仅作为辅助检查。
 ```
 
 ## 这个仓库包含什么
