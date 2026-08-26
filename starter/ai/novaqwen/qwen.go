@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,6 +24,7 @@ const (
 	defaultModel    = "qwen-plus"
 	defaultTimeout  = 15 * time.Second
 	maxResponseSize = 8 << 20
+	maxAttempts     = 3
 	singletonName   = "single"
 )
 
@@ -92,6 +94,20 @@ type APIError struct {
 	RequestID  string
 }
 
+// RetryError reports that a transient Qwen request failure exhausted all
+// Starter-owned attempts. The final infrastructure error remains available
+// through errors.Is and errors.As.
+type RetryError struct {
+	Attempts int
+	Err      error
+}
+
+func (e *RetryError) Error() string {
+	return fmt.Sprintf("novaqwen: request failed after %d/%d attempts: %v", e.Attempts, maxAttempts, e.Err)
+}
+
+func (e *RetryError) Unwrap() error { return e.Err }
+
 func (e *APIError) Error() string {
 	parts := []string{fmt.Sprintf("novaqwen: API request failed: status=%s", e.Status)}
 	if e.Code != "" {
@@ -139,6 +155,28 @@ func (c *Client) Chat(ctx context.Context, request Request) (Response, error) {
 		return Response{}, fmt.Errorf("novaqwen: encode request: %w", err)
 	}
 
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		response, err := c.send(ctx, body)
+		if err == nil {
+			return response, nil
+		}
+		if ctx.Err() != nil {
+			return Response{}, fmt.Errorf("novaqwen: request stopped at attempt %d/%d: %w", attempt, maxAttempts, ctx.Err())
+		}
+		if !transientRequestError(err) {
+			return Response{}, err
+		}
+		if attempt == maxAttempts {
+			return Response{}, &RetryError{Attempts: attempt, Err: err}
+		}
+		if err := waitForRetry(ctx, time.Duration(attempt)*time.Second); err != nil {
+			return Response{}, fmt.Errorf("novaqwen: request stopped after attempt %d/%d: %w", attempt, maxAttempts, err)
+		}
+	}
+	return Response{}, errors.New("novaqwen: request attempts exhausted")
+}
+
+func (c *Client) send(ctx context.Context, body []byte) (Response, error) {
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return Response{}, fmt.Errorf("novaqwen: create request: %w", err)
@@ -169,6 +207,29 @@ func (c *Client) Chat(ctx context.Context, request Request) (Response, error) {
 		return Response{}, fmt.Errorf("%w: choices are empty", ErrInvalidResponse)
 	}
 	return response, nil
+}
+
+func transientRequestError(err error) bool {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var networkError net.Error
+	if errors.As(err, &networkError) {
+		return true
+	}
+	var apiError *APIError
+	return errors.As(err, &apiError) && (apiError.StatusCode == http.StatusTooManyRequests || apiError.StatusCode >= http.StatusInternalServerError)
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // FirstContent returns the first non-empty text completion.
