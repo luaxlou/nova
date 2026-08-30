@@ -55,6 +55,34 @@ https://github.com/luaxlou/nova/blob/main/docs/quickstart_existing_project.md
 完成后运行真实系统、走受影响的真实用户路径并反馈日志、指标或数据证据；go test ./... 与 go vet ./... 仅作为辅助检查。
 ```
 
+### 提示词模板：Golang 项目 Nova 最佳实践审查
+
+```text
+请使用 Nova 工程最佳实践审查当前整个 Golang 项目。本审查适用于任何 Golang 项目，不要求项目已经引入 nova，也不要求为了通过审查而引入任何 Nova Starter。
+
+请先完整阅读 Nova 工程最佳实践：
+https://github.com/luaxlou/nova/blob/main/docs/nova_engineering_best_practices.md
+
+本次只审查并制定调整计划，不要直接修改代码。审查必须基于当前项目的真实目录和源码证据，不要根据命名或惯例臆测。
+
+重点检查：
+1. 目录结构与代码归属：是否按真实业务域组织；业务动作、状态对象、data capability、HTTP adapter、integration、shared 和 tool 是否放在正确位置；文件内容是否与目录职责一致；是否存在 controller/service/repository 等按技术职责横向切割业务的问题。
+2. 无状态优先：没有真实状态、生命周期或多实例需求的能力，是否直接使用 package function；是否存在仅用于承载方法的 Service、Manager、Handler 等无状态 struct。
+3. 反 DI：是否存在 DI 容器、Provider/Wire 图、层层构造器注入、仅为注入依赖而存在的对象，或仅为 Mock 预设的接口。真实拥有状态、生命周期、多实例或运行时选择的对象不属于问题；已经出现真实变化点时，可以由使用方定义最小接口。
+4. Model First：如果项目存在数据库持久化，检查 Model 是否是数据库结构的唯一事实来源，表、字段、索引和约束是否由 Model 明确表达，业务模型、持久化 Model 与 data capability 的边界是否清晰，以及是否存在重复维护的建表 SQL、迁移定义或隐式 ORM 行为。如果项目没有数据库，明确标记为“不适用”。
+
+审查整个项目，但排除 vendor、第三方依赖、生成代码、构建产物和缓存目录。不要把未使用的数据库、ORM、AI、缓存或其他 Starter 当成必选项。
+
+请直接输出：
+1. 整体符合性结论，以及结论所依据的代码范围。
+2. 当前关键目录树与建议目标目录树。
+3. 按影响排序的偏离项；每项必须包含文件路径和代码位置、违反的原则、现实影响与调整建议。没有证据的问题不要列出。
+4. 可执行的调整计划；按阶段列出目标、涉及文件、具体动作、依赖关系和完成标准。
+5. Reality-Driven Development 验证计划；说明调整后要运行什么、走哪些真实用户路径、观察哪些日志、指标或数据。go test ./... 与 go vet ./... 只能作为辅助检查。
+
+输出计划后停止，不要执行任何修改。最后明确询问：是否按以上计划执行调整？只有得到确认后才能开始修改代码。
+```
+
 ## 这个仓库包含什么
 
 - [`starter/config/novaconfig`](./starter/config/novaconfig)：配置读取；说明见 [`docs/starters/novaconfig.md`](./docs/starters/novaconfig.md)
