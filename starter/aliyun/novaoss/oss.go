@@ -156,6 +156,7 @@ type ossConfig struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	SecurityToken   string
+	UseCname        bool
 }
 
 func buildDefinitions(root map[string]any) (map[string]registry.Builder[*aliyunoss.Bucket], string, error) {
@@ -223,7 +224,7 @@ func (cfg ossConfig) validate(name string) error {
 
 func isReservedConfigKey(key string) bool {
 	switch key {
-	case "endpoint", "bucket", "access_key_id", "access_key_secret", "security_token":
+	case "endpoint", "bucket", "access_key_id", "access_key_secret", "security_token", "use_cname":
 		return true
 	default:
 		return false
@@ -245,9 +246,12 @@ func newBucket(name string, cfg ossConfig) (*aliyunoss.Bucket, error) {
 		return nil, err
 	}
 
-	options := make([]aliyunoss.ClientOption, 0, 1)
+	options := make([]aliyunoss.ClientOption, 0, 2)
 	if cfg.SecurityToken != "" {
 		options = append(options, aliyunoss.SecurityToken(cfg.SecurityToken))
+	}
+	if cfg.UseCname {
+		options = append(options, aliyunoss.UseCname(true))
 	}
 	client, err := aliyunoss.New(cfg.Endpoint, cfg.AccessKeyID, cfg.AccessKeySecret, options...)
 	if err != nil {
@@ -268,6 +272,7 @@ func parseOSSConfig(raw map[string]any) ossConfig {
 		AccessKeyID:     asString(raw["access_key_id"]),
 		AccessKeySecret: asString(raw["access_key_secret"]),
 		SecurityToken:   asString(raw["security_token"]),
+		UseCname:        asBool(raw["use_cname"]),
 	}
 }
 
@@ -280,6 +285,11 @@ func asString(value any) string {
 		return ""
 	}
 	return stringValue
+}
+
+func asBool(value any) bool {
+	result, _ := value.(bool)
+	return result
 }
 
 func asStringMap(value any) (map[string]any, bool) {

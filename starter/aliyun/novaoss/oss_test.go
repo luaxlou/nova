@@ -1,6 +1,7 @@
 package novaoss
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,49 @@ aliyun:
 	}
 	if bucket.Client.Config.SecurityToken != "test-security-token" {
 		t.Fatalf("security token was not applied")
+	}
+	if bucket.Client.Config.IsCname {
+		t.Fatalf("standard endpoint unexpectedly enabled CNAME mode")
+	}
+}
+
+func TestNamedBuildsCnameBucketAndSignsCustomDomainURL(t *testing.T) {
+	loadConfig(t, `
+aliyun:
+  oss:
+    delivery-evidence:
+      endpoint: https://media.digitagent.cn
+      bucket: private-delivery-evidence
+      access_key_id: test-access-key-id
+      access_key_secret: test-access-key-secret
+      use_cname: true
+`)
+	resetForTest()
+
+	bucket, err := Named("delivery-evidence").Bucket()
+	if err != nil {
+		t.Fatalf("Named(delivery-evidence).Bucket() error = %v", err)
+	}
+	if bucket.BucketName != "private-delivery-evidence" {
+		t.Fatalf("bucket name = %q, want private-delivery-evidence", bucket.BucketName)
+	}
+	if bucket.Client.Config.Endpoint != "https://media.digitagent.cn" {
+		t.Fatalf("endpoint = %q, want custom domain", bucket.Client.Config.Endpoint)
+	}
+	if !bucket.Client.Config.IsCname {
+		t.Fatalf("custom endpoint did not enable CNAME mode")
+	}
+
+	signed, err := bucket.SignURL("delivery-evidence/evidence-id/original", aliyunoss.HTTPGet, 300)
+	if err != nil {
+		t.Fatalf("SignURL() error = %v", err)
+	}
+	parsed, err := url.Parse(signed)
+	if err != nil {
+		t.Fatalf("parse signed URL: %v", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host != "media.digitagent.cn" || parsed.Path != "/delivery-evidence/evidence-id/original" {
+		t.Fatalf("signed URL location = %s://%s%s, want custom-domain object path", parsed.Scheme, parsed.Host, parsed.Path)
 	}
 }
 
@@ -164,10 +208,11 @@ func TestReloadRebuildsDefinitionsFromCurrentNovaConfig(t *testing.T) {
 	loadConfig(t, `
 aliyun:
   oss:
-    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    endpoint: https://media.digitagent.cn
     bucket: release-artifacts
     access_key_id: first-access-key-id
     access_key_secret: first-access-key-secret
+    use_cname: true
 `)
 	resetForTest()
 
@@ -178,6 +223,9 @@ aliyun:
 	}
 	if firstBucket.BucketName != "release-artifacts" {
 		t.Fatalf("first bucket name = %q, want release-artifacts", firstBucket.BucketName)
+	}
+	if !firstBucket.Client.Config.IsCname {
+		t.Fatalf("first bucket did not enable CNAME mode")
 	}
 
 	loadConfig(t, `
@@ -202,6 +250,9 @@ aliyun:
 	}
 	if reloadedBucket.Client.Config.Endpoint != "https://oss-cn-shanghai.aliyuncs.com" {
 		t.Fatalf("reloaded endpoint = %q, want https://oss-cn-shanghai.aliyuncs.com", reloadedBucket.Client.Config.Endpoint)
+	}
+	if reloadedBucket.Client.Config.IsCname {
+		t.Fatalf("reloaded standard endpoint retained stale CNAME mode")
 	}
 }
 

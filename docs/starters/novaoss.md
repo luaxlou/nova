@@ -31,6 +31,24 @@ aliyun:
       access_key_secret: <runtime-secret>
 ```
 
+## 自定义域名
+
+Bucket 已绑定自定义域名时，将该域名配置为 `endpoint`，并显式启用 CNAME 模式：
+
+```yaml
+aliyun:
+  oss:
+    media:
+      endpoint: https://media.example.com
+      bucket: private-media
+      access_key_id: <runtime-secret>
+      access_key_secret: <runtime-secret>
+      security_token: <optional-runtime-secret>
+      use_cname: true
+```
+
+`use_cname` 只接受 YAML 布尔值，默认值为 `false`。只有 Endpoint 已在 OSS 绑定到对应 Bucket 时才能启用；标准 OSS Endpoint 必须省略该字段或配置为 `false`。
+
 ## 最小用法
 
 ```go
@@ -69,4 +87,5 @@ if err := novaoss.Reload(); err != nil {
 - 配置挂在 `aliyun.oss` 下
 - 只有一个实例时可以使用 `novaoss.Bucket()`
 - 有多个实例时必须使用 `novaoss.Named("<name>").Bucket()`
+- 自定义域名实例必须配置 `use_cname: true`，标准 OSS Endpoint 默认保持非 CNAME 模式
 - 访问密钥和临时令牌必须来自运行时配置或密钥管理系统，禁止写入源代码或提交到仓库
