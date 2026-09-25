@@ -119,7 +119,7 @@ mysqlDB, err := novagorm.OpenMySQLFromSQLDB(mysqlSQLDB)
 postgresDB, err := novagorm.OpenPostgresFromSQLDB(postgresSQLDB)
 ```
 
-bridge 不接管 DSN 解析，但 `Close` / `CloseAll` 仍会关闭底层连接池。
+bridge 不接管 DSN 解析，也不会自动把 standalone `*gorm.DB` 注册到 Nova 生命周期。直接调用 bridge 时，调用方仍拥有传入的 `*sql.DB`，应在应用关闭时调用 `sqlDB.Close()`；只有把 bridge 放入 `novagorm.Register` builder 并通过命名实例获取后，`Close` / `CloseAll` 才会管理该连接池。
 
 ## 禁用 ORM Magic
 

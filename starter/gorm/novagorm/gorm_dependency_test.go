@@ -215,6 +215,43 @@ func TestPostgresMissingDSNDoesNotLeakConfiguration(t *testing.T) {
 	}
 }
 
+func TestPostgresConnectionErrorDoesNotExposeDSNOrPassword(t *testing.T) {
+	const sentinelPassword = "never-echo-this-password"
+	const dsn = "postgres://nova@127.0.0.1:invalid/nova?password=" + sentinelPassword
+	defs, _ := buildDefinitions(map[string]any{
+		"analytics": map[string]any{
+			"driver": "postgres",
+			"postgres": map[string]any{
+				"dsn": dsn,
+			},
+		},
+	})
+
+	_, err := defs["analytics"]("analytics")
+	if err == nil || !strings.Contains(err.Error(), "analytics") || !strings.Contains(err.Error(), "postgres") {
+		t.Fatalf("error = %v, want instance-aware postgres error", err)
+	}
+	if strings.Contains(err.Error(), dsn) || strings.Contains(err.Error(), sentinelPassword) {
+		t.Fatalf("connection error leaked PostgreSQL credentials: %v", err)
+	}
+}
+
+func TestFinishGormOpenClosesPoolAndSanitizesInitializationError(t *testing.T) {
+	db, mock := openGuardTestDB(t)
+	mock.ExpectClose()
+
+	gotDB, err := finishGormOpen(db, errors.New("upstream leaked never-echo-this-password"), "open postgres gorm connection")
+	if gotDB != nil {
+		t.Fatalf("finishGormOpen() db = %#v, want nil", gotDB)
+	}
+	if err == nil || err.Error() != "open postgres gorm connection" {
+		t.Fatalf("finishGormOpen() error = %v, want sanitized error", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("failed open did not close underlying SQL pool: %v", err)
+	}
+}
+
 func TestApplyPostgresPoolConfigHonorsPositiveValuesAndPreservesDefaults(t *testing.T) {
 	db, _ := openGuardTestDB(t)
 	sqlDB, err := db.DB()

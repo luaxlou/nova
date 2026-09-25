@@ -15,6 +15,7 @@ import (
 	gormmysql "gorm.io/driver/mysql"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
 )
@@ -382,14 +383,34 @@ func newPostgresConnection(cfg gormConfig) (*gorm.DB, error) {
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		DSN:                  cfg.Postgres.DSN,
 		PreferSimpleProtocol: cfg.Postgres.PreferSimpleProtocol,
-	}), &gorm.Config{})
+	}), &gorm.Config{Logger: logger.Discard})
+	db, err = finishGormOpen(db, err, "open postgres gorm connection")
 	if err != nil {
-		return nil, fmt.Errorf("open postgres gorm connection: %w", err)
+		return nil, err
 	}
 	if err := applyPostgresPoolConfig(db, cfg.Postgres); err != nil {
+		closeGormPool(db)
 		return nil, err
 	}
 	return db, nil
+}
+
+func finishGormOpen(db *gorm.DB, openErr error, safeMessage string) (*gorm.DB, error) {
+	if openErr == nil {
+		return db, nil
+	}
+	closeGormPool(db)
+	return nil, errors.New(safeMessage)
+}
+
+func closeGormPool(db *gorm.DB) {
+	if db == nil {
+		return
+	}
+	sqlDB, err := db.DB()
+	if err == nil {
+		_ = sqlDB.Close()
+	}
 }
 
 func newMySQLConnection(cfg gormConfig) (*gorm.DB, error) {

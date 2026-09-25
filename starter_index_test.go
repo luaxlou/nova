@@ -3,6 +3,7 @@ package nova
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -47,13 +48,13 @@ func TestStarterIndexMatchesPublishedStarters(t *testing.T) {
 	}
 
 	wantPackages := map[string]string{
-		"novaconfig":    "starter/config/novaconfig",
-		"novagin":       "starter/http/novagin",
-		"novaredis":     "starter/cache/novaredis",
-		"novaoss":       "starter/aliyun/novaoss",
-		"novaqwen":      "starter/ai/novaqwen",
-		"novawebsocket": "starter/realtime/novawebsocket",
-		"novagorm":      "starter/gorm/novagorm",
+		"novaconfig":    "github.com/luaxlou/nova/starter/config/novaconfig",
+		"novagin":       "github.com/luaxlou/nova/starter/http/novagin",
+		"novaredis":     "github.com/luaxlou/nova/starter/cache/novaredis",
+		"novaoss":       "github.com/luaxlou/nova/starter/aliyun/novaoss",
+		"novaqwen":      "github.com/luaxlou/nova/starter/ai/novaqwen",
+		"novawebsocket": "github.com/luaxlou/nova/starter/realtime/novawebsocket",
+		"novagorm":      "github.com/luaxlou/nova/starter/gorm/novagorm",
 	}
 
 	seenIDs := map[string]bool{}
@@ -81,7 +82,8 @@ func TestStarterIndexMatchesPublishedStarters(t *testing.T) {
 		if starter.Package != wantPackage {
 			t.Fatalf("starter %q package = %q, want %q", starter.ID, starter.Package, wantPackage)
 		}
-		if info, err := os.Stat(filepath.FromSlash(starter.Package)); err != nil || !info.IsDir() {
+		packageDir := strings.TrimPrefix(starter.Package, "github.com/luaxlou/nova/")
+		if info, err := os.Stat(filepath.FromSlash(packageDir)); err != nil || !info.IsDir() {
 			t.Fatalf("starter %q package directory %q is missing", starter.ID, starter.Package)
 		}
 		if info, err := os.Stat(filepath.FromSlash(starter.Docs)); err != nil || info.IsDir() {

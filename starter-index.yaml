@@ -1,7 +1,7 @@
 schema_version: 1
 starters:
   - id: novaconfig
-    package: starter/config/novaconfig
+    package: github.com/luaxlou/nova/starter/config/novaconfig
     category: config
     owner: nova
     status: stable
@@ -11,7 +11,7 @@ starters:
     capabilities: [yaml-config, dotted-key-access]
 
   - id: novagin
-    package: starter/http/novagin
+    package: github.com/luaxlou/nova/starter/http/novagin
     category: http
     owner: nova
     status: stable
@@ -21,7 +21,7 @@ starters:
     capabilities: [gin-router, http-server]
 
   - id: novaredis
-    package: starter/cache/novaredis
+    package: github.com/luaxlou/nova/starter/cache/novaredis
     category: cache
     owner: nova
     status: stable
@@ -31,7 +31,7 @@ starters:
     capabilities: [redis-client]
 
   - id: novaoss
-    package: starter/aliyun/novaoss
+    package: github.com/luaxlou/nova/starter/aliyun/novaoss
     category: object-storage
     owner: nova
     status: stable
@@ -41,7 +41,7 @@ starters:
     capabilities: [aliyun-oss]
 
   - id: novaqwen
-    package: starter/ai/novaqwen
+    package: github.com/luaxlou/nova/starter/ai/novaqwen
     category: ai
     owner: nova
     status: stable
@@ -51,7 +51,7 @@ starters:
     capabilities: [qwen-chat-completions, transient-retry]
 
   - id: novawebsocket
-    package: starter/realtime/novawebsocket
+    package: github.com/luaxlou/nova/starter/realtime/novawebsocket
     category: realtime
     owner: nova
     status: stable
@@ -61,7 +61,7 @@ starters:
     capabilities: [websocket-upgrade]
 
   - id: novagorm
-    package: starter/gorm/novagorm
+    package: github.com/luaxlou/nova/starter/gorm/novagorm
     category: data
     owner: nova
     status: stable
