@@ -469,6 +469,21 @@ func OpenMySQLFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
 	return db, nil
 }
 
+func OpenPostgresFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
+	if sqlDB == nil {
+		return nil, fmt.Errorf("sql db is nil")
+	}
+
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		Conn: sqlDB,
+	}), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open postgres gorm from sql db: %w", err)
+	}
+	installAutoMigrateGuard(db)
+	return db, nil
+}
+
 func ensureInit() error {
 	if initialized {
 		return nil
