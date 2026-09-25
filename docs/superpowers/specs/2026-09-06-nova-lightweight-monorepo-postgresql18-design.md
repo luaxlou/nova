@@ -1,20 +1,15 @@
 # Nova 轻量单仓与 PostgreSQL 18 Driver 设计
 
-> 日期：2026-09-06
-> 状态：规划项，暂不进入实施
+> 日期：2026-09-06（2026-09-25 修订）
+> 状态：已批准进入 Nova 独立实施阶段
 > 决策范围：Nova 仓库边界、Starter 索引、`novagorm` PostgreSQL 支持
 > 首个消费者：软件供应链安全项目
 
 ## 0. 当前处置
 
-本文档只记录已经确认的技术方向和未来实施边界，不代表 PostgreSQL driver 已进入开发。PostgreSQL 18 支持只是软件供应链安全整体建设计划中的一项基础设施能力，不能替代存储模型、运行时模型、数据治理、SBOM 建设和本体水化等整体设计。
+本文档已经获准进入 Nova 仓库内的独立实施阶段。当前阶段只交付通用 PostgreSQL driver、Starter 索引、文档和 PostgreSQL 18 真实验证；它不能替代软件供应链安全项目的存储模型、运行时模型、数据治理、SBOM 建设和本体水化设计。
 
-在以下前置条件全部满足前，不编写 PostgreSQL driver 实施计划，不修改 Nova 依赖或代码，也不启动软件供应链安全项目的数据库迁移：
-
-1. 软件供应链安全平台整体存储架构完成设计复核。
-2. SBOM、不可变快照、内容寻址对象、七对象本体、场景对象和 HITL 状态的持久化边界完成冻结。
-3. PostgreSQL 18 在整体建设分期中的优先级、输入、输出和验收责任得到确认。
-4. Nova 变更与消费项目迁移被拆分为独立、可审阅的实施阶段。
+Nova 变更与消费项目迁移仍必须拆分为独立、可审阅的实施阶段。本次批准不授权修改消费项目，不代表消费项目持久化边界已经冻结，也不启动 MySQL 到 PostgreSQL 的数据迁移。
 
 ## 1. 决策摘要
 
@@ -201,6 +196,7 @@ PostgreSQL 与 MySQL 必须经过同一 `installAutoMigrateGuard`：
 - 必须定义 `TableName()`。
 - 所有持久化字段必须声明 `column`。
 - 禁止 `gorm.Model`、`gorm.DeletedAt`、自动时间、生命周期 Hook 和 association。
+- 跨表引用只在 Model 中保留显式外键 ID；当前门禁下不通过 GORM association 元数据生成数据库外键约束。
 - 应用明确列出 Model 后才可调用 `AutoMigrate`。
 - Starter 不维护 SQL migration，也不自动调用 `AutoMigrate`。
 
@@ -223,15 +219,17 @@ PostgreSQL 与 MySQL 必须经过同一 `installAutoMigrateGuard`：
 - `Register` 继续允许真实外部变化点，不要求所有 driver 都进入 Nova。
 - Nova 不提供 MySQL 到 PostgreSQL 的数据迁移工具；消费项目在尚无须保留历史业务数据时从空库初始化。
 
-## 7. 未来验证要求
+## 7. 实施验证要求
 
 Nova 仓库验证分为三层：
 
 1. 静态与单元验证：配置解析、保留键识别、driver 分派、缺失 DSN、连接池参数和索引完整性。
 2. 门禁回归：MySQL 与 PostgreSQL 连接都安装同一 ORM Magic 门禁，现有 MySQL 行为不退化。
-3. PostgreSQL 18 集成验证：使用临时空数据库建立真实连接，执行一组显式 GORM Model 初始化，验证表、主键、唯一索引、外键、JSONB、事务回滚和关闭行为。
+3. PostgreSQL 18 集成验证：使用临时空数据库建立真实连接，执行一组显式 GORM Model 初始化，验证表、主键、唯一索引、JSONB、事务回滚和关闭行为。
 
 Nova 完整 `go test ./...` 必须通过。真实 PostgreSQL 集成验证必须显式连接测试数据库，不能用 SQLite、Mock 或只验证 SQL 字符串替代。
+
+数据库外键不属于 Nova 通用 driver 的验收项。GORM 通过 association relationship 元数据生成外键，而 Nova 的 Model First 门禁明确禁止 association；Nova 不为绕过该边界引入自定义外键标签或隐式 DDL。消费项目若需要数据库外键，必须在其持久化设计中单独确定可审阅、可验证的表达方式，不能把未验证的外键能力归功于本 Starter。
 
 ## 8. 软件供应链安全整体计划中的位置
 
@@ -246,7 +244,7 @@ Nova 完整 `go test ./...` 必须通过。真实 PostgreSQL 集成验证必须�
 
 Nova driver 交付与消费项目迁移必须分成两个提交或 PR，避免基础设施能力与业务 Schema 相互污染。
 
-## 9. 未来实施完成条件
+## 9. 实施完成条件
 
 - Nova 仍为单仓库、单 Go Module，没有新增外部 Starter 工程。
 - Starter 索引覆盖仓库内全部公开 Starter，并能通过轻量校验。
@@ -258,7 +256,7 @@ Nova driver 交付与消费项目迁移必须分成两个提交或 PR，避免�
 
 ## 10. 明确保留的后续事项
 
-- 当前只把 PostgreSQL 18 支持列入整体计划，不从本文档直接进入编码或详细实施计划。
+- PostgreSQL 18 支持已经进入 Nova 独立实施阶段；消费项目迁移仍需单独设计和批准。
 - 阿里云 Starter 的目录归并单独设计，不在 PostgreSQL 工作中移动 `novaqwen`。
 - 只有真实依赖或下载成本数据证明单 Module 不可接受时，才重新评估多 Module。
 - PostgreSQL 高可用、备份、PITR、连接代理和生产密钥管理属于部署设计，不进入通用 Starter。
