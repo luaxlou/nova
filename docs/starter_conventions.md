@@ -46,12 +46,12 @@
 | `starter/config/novaconfig` | `config.yaml` | 无固定业务 key | 负责读取 YAML 配置，并支持点号读取嵌套 key |
 | `starter/http/novagin` | `novaconfig` / 环境变量 | `http.port` | 端口优先级为 `OP_APP_PORT`、`http.port`、`PORT`、`8080` |
 | `starter/cache/novaredis` | `novaconfig` | `redis` | 支持单实例与 `redis.<name>` 多实例 |
-| `starter/gorm/novagorm` | `novaconfig` | `gorm` | 支持单实例与 `gorm.<name>` 多实例；MySQL 是 driver，不是独立 starter |
+| `starter/gorm/novagorm` | `novaconfig` | `gorm` | 支持单实例与 `gorm.<name>` 多实例；MySQL、PostgreSQL 是内置 driver，不是独立 starter |
 | `starter/aliyun/novaoss` | `novaconfig` | `aliyun.oss` | 支持单 Bucket 与 `aliyun.oss.<name>` 多实例 |
 | `starter/ai/novaqwen` | `novaconfig` | `ai.qwen` | 阿里云千问单例 Client 与 Chat Completions 调用 |
 | `starter/realtime/novawebsocket` | 代码默认值 | 无 | 默认使用宽松 Upgrader，生产环境建议应用层收紧 `CheckOrigin` |
 
-GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。应用侧禁用 ORM Magic，表列映射、时间字段、外键 ID 和更新列必须显式表达，不声明 GORM association；Schema 坚持 Model First，通过明确列出 Model 的 `AutoMigrate` 建立数据库结构，并在任何 DDL 前执行 Model 门禁。
+GORM 位于 [`starter/gorm/novagorm`](./starters/novagorm.md)，是 GORM Starter。内置 driver ID 为 `mysql` 与 `postgres`，PostgreSQL 的真实验证基线为 PostgreSQL 18。GORM 支持多实例；数据库类型和对应配置放在 `gorm.<name>` 下。只有一个实例时可以使用 `novagorm.DB()`；多个实例可以设置 `gorm.default` 或使用 `novagorm.Named("<name>").DB()`。应用侧禁用 ORM Magic，表列映射、时间字段、外键 ID 和更新列必须显式表达，不声明 GORM association；Schema 坚持 Model First，通过明确列出 Model 的 `AutoMigrate` 建立数据库结构，并在任何 DDL 前执行 Model 门禁。Nova 不自动生成数据库外键，也不迁移 MySQL 数据。
 
 ## 组合配置示例
 
@@ -69,9 +69,10 @@ gorm:
       max_open: 20
       max_idle: 10
   analytics:
-    driver: mysql
-    mysql:
-      dsn: analytics:password@tcp(localhost:3306)/analytics?parseTime=true
+    driver: postgres
+    postgres:
+      dsn: host=127.0.0.1 user=analytics password=<runtime-secret> dbname=analytics port=5432 sslmode=disable
+      prefer_simple_protocol: false
 
 # starter/cache/novaredis
 redis:

@@ -1,0 +1,77 @@
+schema_version: 1
+starters:
+  - id: novaconfig
+    package: starter/config/novaconfig
+    category: config
+    owner: nova
+    status: stable
+    config_root: config.yaml
+    lifecycle: [lazy, reload]
+    docs: docs/starters/novaconfig.md
+    capabilities: [yaml-config, dotted-key-access]
+
+  - id: novagin
+    package: starter/http/novagin
+    category: http
+    owner: nova
+    status: stable
+    config_root: http
+    lifecycle: [singleton]
+    docs: docs/starters/novagin.md
+    capabilities: [gin-router, http-server]
+
+  - id: novaredis
+    package: starter/cache/novaredis
+    category: cache
+    owner: nova
+    status: stable
+    config_root: redis
+    lifecycle: [lazy, named, reload, close]
+    docs: docs/starters/novaredis.md
+    capabilities: [redis-client]
+
+  - id: novaoss
+    package: starter/aliyun/novaoss
+    category: object-storage
+    owner: nova
+    status: stable
+    config_root: aliyun.oss
+    lifecycle: [lazy, named, reload, close]
+    docs: docs/starters/novaoss.md
+    capabilities: [aliyun-oss]
+
+  - id: novaqwen
+    package: starter/ai/novaqwen
+    category: ai
+    owner: nova
+    status: stable
+    config_root: ai.qwen
+    lifecycle: [lazy, reload, close]
+    docs: docs/starters/novaqwen.md
+    capabilities: [qwen-chat-completions, transient-retry]
+
+  - id: novawebsocket
+    package: starter/realtime/novawebsocket
+    category: realtime
+    owner: nova
+    status: stable
+    config_root: none
+    lifecycle: [singleton]
+    docs: docs/starters/novawebsocket.md
+    capabilities: [websocket-upgrade]
+
+  - id: novagorm
+    package: starter/gorm/novagorm
+    category: data
+    owner: nova
+    status: stable
+    config_root: gorm
+    lifecycle: [lazy, named, reload, close]
+    docs: docs/starters/novagorm.md
+    capabilities: [gorm, model-first-guard]
+    drivers:
+      - id: mysql
+        status: stable
+      - id: postgres
+        status: stable
+        verified_server: PostgreSQL 18

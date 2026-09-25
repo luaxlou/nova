@@ -96,6 +96,7 @@ https://github.com/luaxlou/nova/blob/main/docs/nova_engineering_best_practices.m
 - [`docs/sdk_manual.md`](./docs/sdk_manual.md)：SDK 手册
 - [`docs/starter_conventions.md`](./docs/starter_conventions.md)：Starter 统一约定
 - [`docs/starter_composition_matrix.md`](./docs/starter_composition_matrix.md)：Starter 组合矩阵
+- [`starter-index.yaml`](./starter-index.yaml)：机器可读的 Starter 与内置 driver 索引
 - [`docs/nova_engineering_best_practices.md`](./docs/nova_engineering_best_practices.md)：Nova 工程最佳实践
 
 当前二代默认配置文件为 `config.yaml`（YAML）。需要读取配置的 starter 统一通过 `novaconfig` 获取配置；完整配置约定见 [`docs/starter_conventions.md`](./docs/starter_conventions.md) 与各 starter 专用说明。
@@ -116,9 +117,10 @@ gorm:
       max_open: 20
       max_idle: 10
   analytics:
-    driver: mysql
-    mysql:
-      dsn: analytics:password@tcp(localhost:3306)/analytics?parseTime=true
+    driver: postgres
+    postgres:
+      dsn: host=127.0.0.1 user=analytics password=<runtime-secret> dbname=analytics port=5432 sslmode=disable
+      prefer_simple_protocol: false
 
 # starter/cache/novaredis
 redis:
@@ -134,11 +136,11 @@ aliyun:
     access_key_secret: <runtime-secret>
 ```
 
-## GORM / MySQL 约定
+## GORM / MySQL / PostgreSQL 约定
 
-MySQL 不再作为独立 Starter 对外提供，只是 [`starter/gorm/novagorm`](./starter/gorm/novagorm) 的一种 driver 选择。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver` 选择数据库类型，再把对应数据库配置放到 `mysql` 等 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时必须使用 `novagorm.Named("<name>").DB()`。
+MySQL 与 PostgreSQL 都是 [`starter/gorm/novagorm`](./starter/gorm/novagorm) 的内置 driver，不作为独立 Starter 对外提供。GORM 支持多实例，实例直接放在 `gorm.<name>` 下：通过 `driver: mysql` 或 `driver: postgres` 选择数据库类型，再把配置放到同名 driver 节点下。只有一个实例时可以使用 `novagorm.DB()`；有多个实例时可以通过 `gorm.default` 选择默认实例，或使用 `novagorm.Named("<name>").DB()` 显式获取。
 
-Nova 项目禁用 ORM Magic：表列映射、时间字段、外键和更新列都必须显式表达；Schema 坚持 Model First，保留基于 Model 的显式 `AutoMigrate`，并由 `novagorm` 在任何 DDL 前执行强制 Model 门禁。完整约束见 [`novagorm` 说明](./docs/starters/novagorm.md#禁用-orm-magic)。
+Nova 项目禁用 ORM Magic：表列映射、时间字段、外键 ID 和更新列都必须显式表达；Schema 坚持 Model First，保留基于 Model 的显式 `AutoMigrate`，并由 `novagorm` 在任何 DDL 前执行强制 Model 门禁。门禁禁止 association，因此 Nova 不自动生成数据库外键，也不提供 MySQL 到 PostgreSQL 的数据迁移。完整约束见 [`novagorm` 说明](./docs/starters/novagorm.md#禁用-orm-magic)。
 
 ## Starter 专用说明
 

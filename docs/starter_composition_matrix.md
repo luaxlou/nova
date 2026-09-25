@@ -10,7 +10,7 @@
 
 - 必选：`novaconfig`、`novagin`、`starter/gorm/novagorm`
 - 可选：`novaredis`
-- 适用：读写型业务服务
+- 适用：使用 MySQL 或 PostgreSQL 的读写型业务服务；PostgreSQL 18 是当前真实验证基线
 
 ## 场景 3：API + DB + Cache
 
@@ -32,7 +32,15 @@
 
 ## 统一验证
 
+常规变更运行：
+
 ```bash
 go test ./...
 go vet ./...
+```
+
+PostgreSQL driver 发布前还必须连接专用 PostgreSQL 18 测试库运行：
+
+```bash
+POSTGRES_TEST_DSN='<runtime-secret>' go test -tags=postgres_integration ./starter/gorm/novagorm -run TestPostgres18Integration -count=1 -v
 ```
