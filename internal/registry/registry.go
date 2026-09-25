@@ -122,9 +122,11 @@ func (h *Instance[T]) Get() (T, error) {
 	return h.r.getOrBuild(h.name)
 }
 
-// Reload clears cache and rebuilds lazily on next Get.
+// Reload closes the cached value and rebuilds it immediately.
 func (h *Instance[T]) Reload() error {
-	h.r.reset(h.name)
+	if err := h.Close(); err != nil {
+		return err
+	}
 	_, err := h.Get()
 	return err
 }
@@ -186,12 +188,6 @@ func (r *Registry[T]) CloseAll() error {
 	}
 
 	return err
-}
-
-func (r *Registry[T]) reset(name string) {
-	r.mu.Lock()
-	delete(r.instances, name)
-	r.mu.Unlock()
 }
 
 func (r *Registry[T]) getOrBuild(name string) (T, error) {

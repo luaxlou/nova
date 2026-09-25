@@ -9,6 +9,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/migrator"
+	"gorm.io/gorm/schema"
 )
 
 type implicitTableNameModel struct {
@@ -81,12 +83,20 @@ func (explicitModel) TableName() string { return "explicit_models" }
 
 type recordingMigrator struct {
 	gorm.Migrator
-	calls int
+	calls           int
+	buildIndexCalls int
 }
+
+var _ migrator.BuildIndexOptionsInterface = (*recordingMigrator)(nil)
 
 func (m *recordingMigrator) AutoMigrate(...any) error {
 	m.calls++
 	return nil
+}
+
+func (m *recordingMigrator) BuildIndexOptions([]schema.IndexOption, *gorm.Statement) []interface{} {
+	m.buildIndexCalls++
+	return []interface{}{"sentinel-index-option"}
 }
 
 func TestAutoMigrateRejectsImplicitTableNameBeforeDatabaseAccess(t *testing.T) {
@@ -133,6 +143,45 @@ func TestOpenMySQLFromSQLDBInstallsAutoMigrateGuard(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("AutoMigrate reached database before guard rejection: %v", err)
+	}
+}
+
+func TestOpenPostgresFromSQLDBRejectsNilDB(t *testing.T) {
+	if _, err := OpenPostgresFromSQLDB(nil); err == nil {
+		t.Fatal("OpenPostgresFromSQLDB(nil) error = nil, want error")
+	}
+}
+
+func TestOpenPostgresFromSQLDBInstallsAutoMigrateGuard(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sql mock: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	db, err := OpenPostgresFromSQLDB(sqlDB)
+	if err != nil {
+		t.Fatalf("OpenPostgresFromSQLDB() error = %v", err)
+	}
+
+	if err := db.AutoMigrate(&implicitTableNameModel{}); !errors.Is(err, ErrORMMagic) {
+		t.Fatalf("AutoMigrate() error = %v, want ErrORMMagic", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("AutoMigrate reached database before guard rejection: %v", err)
+	}
+}
+
+func TestAutoMigrateGuardPreservesBuildIndexOptions(t *testing.T) {
+	delegate := &recordingMigrator{}
+	guard := &autoMigrateGuard{Migrator: delegate}
+
+	got := guard.BuildIndexOptions(nil, &gorm.Statement{})
+	if delegate.buildIndexCalls != 1 {
+		t.Fatalf("BuildIndexOptions calls = %d, want 1", delegate.buildIndexCalls)
+	}
+	if len(got) != 1 || got[0] != "sentinel-index-option" {
+		t.Fatalf("BuildIndexOptions() = %#v, want sentinel option", got)
 	}
 }
 

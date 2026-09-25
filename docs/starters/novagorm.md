@@ -1,6 +1,6 @@
 # novagorm
 
-`starter/gorm/novagorm` 是 GORM Starter。它负责按配置创建一个或多个 `*gorm.DB`，并把具体数据库配置挂在所选 driver 下。
+`starter/gorm/novagorm` 是 GORM Starter。它负责按配置创建一个或多个 `*gorm.DB`，内置 `mysql` 与 `postgres` driver，并把具体数据库配置挂在所选 driver 下。PostgreSQL 的真实验证基线为 PostgreSQL 18。
 
 ## 多实例配置
 
@@ -30,6 +30,35 @@ gorm:
     dsn: root:password@tcp(localhost:3306)/app?parseTime=true
     max_open: 20
     max_idle: 10
+```
+
+PostgreSQL 单实例使用固定 driver ID `postgres`：
+
+```yaml
+gorm:
+  driver: postgres
+  postgres:
+    dsn: host=127.0.0.1 user=app password=<runtime-secret> dbname=app port=5432 sslmode=disable TimeZone=UTC
+    max_open: 20
+    max_idle: 10
+    conn_max_lifetime: 1800
+    conn_max_idle_time: 300
+    prefer_simple_protocol: false
+```
+
+MySQL 与 PostgreSQL 可以作为命名实例并存；`default` 用于选择 `novagorm.DB()` 返回的实例：
+
+```yaml
+gorm:
+  default: main
+  main:
+    driver: postgres
+    postgres:
+      dsn: host=127.0.0.1 user=app password=<runtime-secret> dbname=app port=5432 sslmode=disable
+  legacy:
+    driver: mysql
+    mysql:
+      dsn: root:<runtime-secret>@tcp(localhost:3306)/legacy?parseTime=true
 ```
 
 ## 最小用法
@@ -71,12 +100,26 @@ _, _ = mainDB, analyticsDB
 - 配置顶层 key 为 `gorm`
 - 数据库类型由 `gorm.driver` 或 `gorm.<name>.driver` 选择
 - MySQL 配置挂在 `gorm.mysql` 或 `gorm.<name>.mysql` 下
+- PostgreSQL 配置挂在 `gorm.postgres` 或 `gorm.<name>.postgres` 下；不支持 `postgresql` 别名
+- PostgreSQL 的 `prefer_simple_protocol` 用于关闭 pgx 隐式 prepared statement；默认值为 `false`
+- 两种 driver 都支持 `max_open`、`max_idle`、`conn_max_lifetime` 和 `conn_max_idle_time`；小于等于零时保留 Go SQL 默认值
 - 多实例通过 `gorm.<name>` 配置
 - 指定实例使用 `novagorm.Named("analytics").DB()`
 - 只有一个实例时可以使用 `novagorm.DB()`
 - 有多个实例时必须使用 `novagorm.Named("<name>").DB()`
-- MySQL 不作为独立 Starter 对外提供；使用 MySQL 时通过 `gorm.driver: mysql` 与 `gorm.mysql` 配置
-- 当前内置配置支持 MySQL driver；其他 driver 可通过 `Register` 扩展
+- MySQL 与 PostgreSQL 都是 `novagorm` 的内置 driver，不作为独立 Starter 对外提供；其他 driver 可通过 `Register` 扩展
+- DSN 与密码必须由运行时配置或密钥管理系统提供，不得写入日志、错误信息或提交到仓库
+
+## 从现有 SQL 连接打开 GORM
+
+已有 `*sql.DB` 时，可以通过显式 bridge 接入同一 Model First 门禁：
+
+```go
+mysqlDB, err := novagorm.OpenMySQLFromSQLDB(mysqlSQLDB)
+postgresDB, err := novagorm.OpenPostgresFromSQLDB(postgresSQLDB)
+```
+
+bridge 不接管 DSN 解析，也不会自动把 standalone `*gorm.DB` 注册到 Nova 生命周期。直接调用 bridge 时，调用方仍拥有传入的 `*sql.DB`，应在应用关闭时调用 `sqlDB.Close()`；只有把 bridge 放入 `novagorm.Register` builder 并通过命名实例获取后，`Close` / `CloseAll` 才会管理该连接池。
 
 ## 禁用 ORM Magic
 
@@ -90,6 +133,7 @@ _, _ = mainDB, analyticsDB
 - `novagorm.Named(name).DB()`
 - `novagorm.Register(name, builder)` 返回的自定义连接
 - `novagorm.OpenMySQLFromSQLDB(sqlDB)`
+- `novagorm.OpenPostgresFromSQLDB(sqlDB)`
 
 直接调用 `gorm.Open` 创建的连接不由 Nova 管理，不会安装门禁。
 
@@ -127,6 +171,8 @@ novagorm: ORM magic blocked for model UserModel: field UpdatedAt enables autoUpd
 
 - 门禁只检查本次传入 `AutoMigrate` 的 Model。所有持久化 Model 必须明确列入迁移清单。
 - 门禁不维护 SQL migration；Schema 的唯一来源仍然是 Model。
+- Model 只保留显式外键 ID，不声明 GORM association。因为 GORM 依赖 association 元数据生成数据库外键，Nova 不自动生成外键约束；消费项目必须单独设计和验证需要的数据库外键。
+- Nova 不提供 MySQL 到 PostgreSQL 的数据迁移工具。
 - 门禁不拦截运行期 CRUD。`Save`、`FullSaveAssociations` 等行为仍按工程规范禁止，更新应使用带明确 `Where` 和更新列的 `Update`/`Updates`。
 - Starter 不会自行调用 `AutoMigrate`；应用负责在明确的启动位置执行。
 

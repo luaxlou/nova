@@ -13,7 +13,9 @@ import (
 	"github.com/luaxlou/nova/internal/registry"
 	"github.com/luaxlou/nova/starter/config/novaconfig"
 	gormmysql "gorm.io/driver/mysql"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
 )
@@ -331,11 +333,20 @@ func buildDefinitions(root map[string]any) (map[string]Builder, string) {
 	}
 
 	selectedName := chooseSingleConfigName(instances)
+	if configuredDefault := asString(root["default"]); configuredDefault != "" {
+		if _, ok := instances[configuredDefault]; ok {
+			selectedName = configuredDefault
+		}
+	}
 
 	for name, cfg := range instances {
 		cfgCopy := cfg
-		definitions[name] = func(_ string) (*gorm.DB, error) {
-			return newConfiguredConnection(cfgCopy)
+		definitions[name] = func(instanceName string) (*gorm.DB, error) {
+			db, err := newConfiguredConnection(cfgCopy)
+			if err != nil {
+				return nil, fmt.Errorf("open gorm instance %q with driver %q: %w", instanceName, cfgCopy.Driver, err)
+			}
+			return db, nil
 		}
 	}
 
@@ -344,7 +355,7 @@ func buildDefinitions(root map[string]any) (map[string]Builder, string) {
 
 func isReservedConfigKey(key string) bool {
 	switch key {
-	case "default", "driver", "mysql":
+	case "default", "driver", "mysql", "postgres":
 		return true
 	default:
 		return false
@@ -357,8 +368,48 @@ func newConfiguredConnection(cfg gormConfig) (*gorm.DB, error) {
 	switch driver {
 	case "mysql":
 		return newMySQLConnection(cfg)
+	case "postgres":
+		return newPostgresConnection(cfg)
 	default:
 		return nil, fmt.Errorf("unsupported gorm driver %q", driver)
+	}
+}
+
+func newPostgresConnection(cfg gormConfig) (*gorm.DB, error) {
+	if cfg.Postgres.DSN == "" {
+		return nil, fmt.Errorf("gorm postgres config missing postgres.dsn")
+	}
+
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN:                  cfg.Postgres.DSN,
+		PreferSimpleProtocol: cfg.Postgres.PreferSimpleProtocol,
+	}), &gorm.Config{Logger: logger.Discard})
+	db, err = finishGormOpen(db, err, "open postgres gorm connection")
+	if err != nil {
+		return nil, err
+	}
+	if err := applyPostgresPoolConfig(db, cfg.Postgres); err != nil {
+		closeGormPool(db)
+		return nil, err
+	}
+	return db, nil
+}
+
+func finishGormOpen(db *gorm.DB, openErr error, safeMessage string) (*gorm.DB, error) {
+	if openErr == nil {
+		return db, nil
+	}
+	closeGormPool(db)
+	return nil, errors.New(safeMessage)
+}
+
+func closeGormPool(db *gorm.DB) {
+	if db == nil {
+		return
+	}
+	sqlDB, err := db.DB()
+	if err == nil {
+		_ = sqlDB.Close()
 	}
 }
 
@@ -380,9 +431,34 @@ func newMySQLConnection(cfg gormConfig) (*gorm.DB, error) {
 }
 
 func applyMySQLPoolConfig(db *gorm.DB, cfg mysqlConfig) error {
+	return applyPoolConfig(db, "mysql", poolConfig{
+		MaxOpen:         cfg.MaxOpen,
+		MaxIdle:         cfg.MaxIdle,
+		ConnMaxLifetime: cfg.ConnMaxLifetime,
+		ConnMaxIdleTime: cfg.ConnMaxIdleTime,
+	})
+}
+
+func applyPostgresPoolConfig(db *gorm.DB, cfg postgresConfig) error {
+	return applyPoolConfig(db, "postgres", poolConfig{
+		MaxOpen:         cfg.MaxOpen,
+		MaxIdle:         cfg.MaxIdle,
+		ConnMaxLifetime: cfg.ConnMaxLifetime,
+		ConnMaxIdleTime: cfg.ConnMaxIdleTime,
+	})
+}
+
+type poolConfig struct {
+	MaxOpen         int
+	MaxIdle         int
+	ConnMaxLifetime int
+	ConnMaxIdleTime int
+}
+
+func applyPoolConfig(db *gorm.DB, driver string, cfg poolConfig) error {
 	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("get mysql sql db from gorm: %w", err)
+		return fmt.Errorf("get %s sql db from gorm: %w", driver, err)
 	}
 	if cfg.MaxOpen > 0 {
 		sqlDB.SetMaxOpenConns(cfg.MaxOpen)
@@ -414,6 +490,21 @@ func OpenMySQLFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
 	return db, nil
 }
 
+func OpenPostgresFromSQLDB(sqlDB *sql.DB) (*gorm.DB, error) {
+	if sqlDB == nil {
+		return nil, fmt.Errorf("sql db is nil")
+	}
+
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		Conn: sqlDB,
+	}), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open postgres gorm from sql db: %w", err)
+	}
+	installAutoMigrateGuard(db)
+	return db, nil
+}
+
 func ensureInit() error {
 	if initialized {
 		return nil
@@ -422,8 +513,9 @@ func ensureInit() error {
 }
 
 type gormConfig struct {
-	Driver string
-	MySQL  mysqlConfig
+	Driver   string
+	MySQL    mysqlConfig
+	Postgres postgresConfig
 }
 
 type mysqlConfig struct {
@@ -435,11 +527,22 @@ type mysqlConfig struct {
 	ConnMaxIdleTime           int
 }
 
+type postgresConfig struct {
+	DSN                  string
+	PreferSimpleProtocol bool
+	MaxOpen              int
+	MaxIdle              int
+	ConnMaxLifetime      int
+	ConnMaxIdleTime      int
+}
+
 func parseGormConfig(raw map[string]any) gormConfig {
 	mysqlRaw, _ := asStringMap(raw["mysql"])
+	postgresRaw, _ := asStringMap(raw["postgres"])
 	return gormConfig{
-		Driver: asString(raw["driver"]),
-		MySQL:  parseMySQLConfig(mysqlRaw),
+		Driver:   asString(raw["driver"]),
+		MySQL:    parseMySQLConfig(mysqlRaw),
+		Postgres: parsePostgresConfig(postgresRaw),
 	}
 }
 
@@ -451,6 +554,17 @@ func parseMySQLConfig(raw map[string]any) mysqlConfig {
 		MaxIdle:                   firstInt(raw, "max_idle", "max_idle_conns"),
 		ConnMaxLifetime:           firstInt(raw, "conn_max_lifetime", "conn_max_lifetime_sec"),
 		ConnMaxIdleTime:           asInt(raw["conn_max_idle_time"]),
+	}
+}
+
+func parsePostgresConfig(raw map[string]any) postgresConfig {
+	return postgresConfig{
+		DSN:                  asString(raw["dsn"]),
+		PreferSimpleProtocol: asBool(raw["prefer_simple_protocol"]),
+		MaxOpen:              firstInt(raw, "max_open", "max_open_conns"),
+		MaxIdle:              firstInt(raw, "max_idle", "max_idle_conns"),
+		ConnMaxLifetime:      firstInt(raw, "conn_max_lifetime", "conn_max_lifetime_sec"),
+		ConnMaxIdleTime:      asInt(raw["conn_max_idle_time"]),
 	}
 }
 

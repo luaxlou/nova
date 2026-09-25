@@ -129,6 +129,151 @@ func TestParseGormConfigKeepsMySQLConfigUnderDriver(t *testing.T) {
 	}
 }
 
+func TestParseGormConfigKeepsPostgresConfigUnderDriver(t *testing.T) {
+	got := parseGormConfig(map[string]any{
+		"driver": "postgres",
+		"postgres": map[string]any{
+			"dsn":                    "host=127.0.0.1 user=nova password=secret dbname=nova port=5432 sslmode=disable",
+			"max_open":               20,
+			"max_idle":               10,
+			"conn_max_lifetime":      1800,
+			"conn_max_idle_time":     300,
+			"prefer_simple_protocol": true,
+		},
+	})
+
+	if got.Driver != "postgres" || got.Postgres.DSN == "" || !got.Postgres.PreferSimpleProtocol {
+		t.Fatalf("postgres config = %#v", got)
+	}
+	if got.Postgres.MaxOpen != 20 || got.Postgres.MaxIdle != 10 || got.Postgres.ConnMaxLifetime != 1800 || got.Postgres.ConnMaxIdleTime != 300 {
+		t.Fatalf("postgres pool config = %#v", got.Postgres)
+	}
+}
+
+func TestBuildDefinitionsSupportsNamedMySQLAndPostgres(t *testing.T) {
+	defs, selectedName := buildDefinitions(map[string]any{
+		"default": "main",
+		"main": map[string]any{
+			"driver": "postgres",
+			"postgres": map[string]any{
+				"dsn": "host=127.0.0.1 user=nova dbname=main port=5432 sslmode=disable",
+			},
+		},
+		"legacy": map[string]any{
+			"driver": "mysql",
+			"mysql": map[string]any{
+				"dsn": "root:password@tcp(localhost:3306)/legacy",
+			},
+		},
+	})
+
+	if selectedName != "main" {
+		t.Fatalf("selected name = %q, want main", selectedName)
+	}
+	if defs["main"] == nil || defs["legacy"] == nil {
+		t.Fatalf("definitions = %#v, want main and legacy", defs)
+	}
+}
+
+func TestBuildDefinitionsSupportsDirectPostgresDialector(t *testing.T) {
+	defs, selectedName := buildDefinitions(map[string]any{
+		"driver": "postgres",
+		"postgres": map[string]any{
+			"dsn": "host=127.0.0.1 user=nova dbname=app port=5432 sslmode=disable",
+		},
+	})
+
+	if selectedName != singletonName || defs[singletonName] == nil {
+		t.Fatalf("selected name = %q, definitions = %#v", selectedName, defs)
+	}
+}
+
+func TestConfiguredConnectionRejectsPostgresqlAlias(t *testing.T) {
+	_, err := newConfiguredConnection(gormConfig{Driver: "postgresql"})
+	if err == nil || !strings.Contains(err.Error(), `unsupported gorm driver "postgresql"`) {
+		t.Fatalf("error = %v, want unsupported postgresql alias", err)
+	}
+}
+
+func TestPostgresMissingDSNDoesNotLeakConfiguration(t *testing.T) {
+	const sentinelPassword = "never-echo-this-password"
+	defs, _ := buildDefinitions(map[string]any{
+		"analytics": map[string]any{
+			"driver": "postgres",
+			"postgres": map[string]any{
+				"password": sentinelPassword,
+			},
+		},
+	})
+
+	_, err := defs["analytics"]("analytics")
+	if err == nil || !strings.Contains(err.Error(), "analytics") || !strings.Contains(err.Error(), "postgres.dsn") {
+		t.Fatalf("error = %v, want instance-aware postgres.dsn error", err)
+	}
+	if strings.Contains(err.Error(), sentinelPassword) {
+		t.Fatalf("error leaked password: %v", err)
+	}
+}
+
+func TestPostgresConnectionErrorDoesNotExposeDSNOrPassword(t *testing.T) {
+	const sentinelPassword = "never-echo-this-password"
+	const dsn = "postgres://nova@127.0.0.1:invalid/nova?password=" + sentinelPassword
+	defs, _ := buildDefinitions(map[string]any{
+		"analytics": map[string]any{
+			"driver": "postgres",
+			"postgres": map[string]any{
+				"dsn": dsn,
+			},
+		},
+	})
+
+	_, err := defs["analytics"]("analytics")
+	if err == nil || !strings.Contains(err.Error(), "analytics") || !strings.Contains(err.Error(), "postgres") {
+		t.Fatalf("error = %v, want instance-aware postgres error", err)
+	}
+	if strings.Contains(err.Error(), dsn) || strings.Contains(err.Error(), sentinelPassword) {
+		t.Fatalf("connection error leaked PostgreSQL credentials: %v", err)
+	}
+}
+
+func TestFinishGormOpenClosesPoolAndSanitizesInitializationError(t *testing.T) {
+	db, mock := openGuardTestDB(t)
+	mock.ExpectClose()
+
+	gotDB, err := finishGormOpen(db, errors.New("upstream leaked never-echo-this-password"), "open postgres gorm connection")
+	if gotDB != nil {
+		t.Fatalf("finishGormOpen() db = %#v, want nil", gotDB)
+	}
+	if err == nil || err.Error() != "open postgres gorm connection" {
+		t.Fatalf("finishGormOpen() error = %v, want sanitized error", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("failed open did not close underlying SQL pool: %v", err)
+	}
+}
+
+func TestApplyPostgresPoolConfigHonorsPositiveValuesAndPreservesDefaults(t *testing.T) {
+	db, _ := openGuardTestDB(t)
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("get sql db: %v", err)
+	}
+
+	if err := applyPostgresPoolConfig(db, postgresConfig{MaxOpen: 7}); err != nil {
+		t.Fatalf("apply positive pool config: %v", err)
+	}
+	if got := sqlDB.Stats().MaxOpenConnections; got != 7 {
+		t.Fatalf("max open connections = %d, want 7", got)
+	}
+
+	if err := applyPostgresPoolConfig(db, postgresConfig{}); err != nil {
+		t.Fatalf("apply zero pool config: %v", err)
+	}
+	if got := sqlDB.Stats().MaxOpenConnections; got != 7 {
+		t.Fatalf("max open connections after zero config = %d, want 7", got)
+	}
+}
+
 func TestRegisteredBuilderErrorIsReturned(t *testing.T) {
 	resetForTest()
 	wantErr := errors.New("boom")
